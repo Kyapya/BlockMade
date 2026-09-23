@@ -351,7 +351,7 @@ button{cursor:pointer}
         <button>赤い消防車</button><button>白と青の灯台</button><button>ピラミッド</button><button>小さなお城</button><button>パンダ</button><button>新幹線</button><button>ヤシの木のある島</button><button>ロケット</button>
       </div>
       <div class="gen-opts">
-        <div><span class="lbl">大きさ</span><span class="seg" id="gen-size"><button data-v="s" aria-pressed="false">小 30–50</button><button data-v="m" aria-pressed="true">中 50–90</button><button data-v="l" aria-pressed="false">大 90–140</button></span></div>
+        <div><span class="lbl">大きさ</span><span class="seg" id="gen-size"><button data-v="s" aria-pressed="false">小 30–60</button><button data-v="m" aria-pressed="true">中 60–120</button><button data-v="l" aria-pressed="false">大 120–200</button><button data-v="xl" aria-pressed="false">特大 200–350</button><button data-v="auto" aria-pressed="false">おまかせ</button></span></div>
         <div><span class="lbl">設計</span><span class="seg" id="gen-tier"><button data-v="default" aria-pressed="true">標準</button><button data-v="complex" aria-pressed="false">じっくり</button></span></div>
       </div>
       <div class="btnrow">
@@ -523,6 +523,34 @@ const Scene = (() => {
     return geoCache.get(k);
   }
 
+  // All studs of one brick size merged into a single geometry (one draw call per brick).
+  const studCache = new Map();
+  function studsGeo(sx, sz, h) {
+    const k = `${sx}|${h}|${sz}`;
+    if (studCache.has(k)) return studCache.get(k);
+    const one = studGeo.toNonIndexed();
+    const src = one.attributes;
+    const n = src.position.count, total = n * sx * sz;
+    const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), uv = new Float32Array(total * 2);
+    let o = 0;
+    for (let i = 0; i < sx; i++) for (let j = 0; j < sz; j++) {
+      const dx = i - sx / 2 + 0.5, dy = h * H / 2 + STUD_H / 2 - GAP / 2, dz = j - sz / 2 + 0.5;
+      for (let v = 0; v < n; v++, o++) {
+        pos[o * 3] = src.position.getX(v) + dx; pos[o * 3 + 1] = src.position.getY(v) + dy; pos[o * 3 + 2] = src.position.getZ(v) + dz;
+        nor[o * 3] = src.normal.getX(v); nor[o * 3 + 1] = src.normal.getY(v); nor[o * 3 + 2] = src.normal.getZ(v);
+        uv[o * 2] = src.uv.getX(v); uv[o * 2 + 1] = src.uv.getY(v);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.computeBoundingSphere();
+    one.dispose();
+    studCache.set(k, g);
+    return g;
+  }
+
   // --- printed decorations (clock face) ---
   const liveClocks = [];
   function drawClock(ctx, w, h, bg) {
@@ -585,14 +613,11 @@ const Scene = (() => {
       mesh.castShadow = mesh.receiveShadow = shadows;
       mesh.userData.blockId = b.id;
       bg.add(mesh);
-      const studs = [];
-      for (let i = 0; i < b.sx; i++) for (let k = 0; k < b.sz; k++) {
-        const s = new THREE.Mesh(studGeo, mat);
-        s.position.set(i - b.sx / 2 + 0.5, b.h * H / 2 + STUD_H / 2 - GAP / 2, k - b.sz / 2 + 0.5);
-        s.castShadow = shadows;
-        s.userData.blockId = b.id;
-        bg.add(s); studs.push(s);
-      }
+      const studMesh = new THREE.Mesh(studsGeo(b.sx, b.sz, b.h), mat);
+      studMesh.castShadow = shadows;
+      studMesh.userData.blockId = b.id;
+      bg.add(studMesh);
+      const studs = [studMesh];
       const line = new THREE.LineSegments(g.edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
       line.raycast = () => {};
       bg.add(line);
@@ -1240,7 +1265,15 @@ function copyText(text, ok, fail) {
    ====================================================================== */
 let sampleNS; // undefined: not resolved yet, null: unavailable
 let genCtl = null, genTimer = 0;
-const SIZES = { s: [30, 50], m: [50, 90], l: [90, 140] };
+// Brick budget and matching scale hints for the AI. Bigger models get more layers
+// and steps, and are told to spend the extra bricks on detail rather than bulk.
+const SIZES = {
+  s:    { bricks: 'about 30-60 bricks', layers: '6-10', steps: '6-12' },
+  m:    { bricks: 'about 60-120 bricks', layers: '8-16', steps: '10-20' },
+  l:    { bricks: 'about 120-200 bricks', layers: '12-22', steps: '15-30' },
+  xl:   { bricks: 'about 200-350 bricks', layers: '16-30', steps: '20-40' },
+  auto: { bricks: 'as many bricks as the design needs to look its best (typically 80-250; never pad it)', layers: '8-30', steps: '10-40' }
+};
 const genOpts = { size: 'm', tier: 'default' };
 
 function toCompact(m) {
@@ -1258,9 +1291,9 @@ async function examplePrompt() {
   } catch (e) { return ''; }
 }
 function buildPrompt(request, example) {
-  const [lo, hi] = SIZES[genOpts.size];
+  const size = SIZES[genOpts.size];
   return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
-Aim for about ${lo}-${hi} bricks. Make it clearly recognizable from the front, with good colors and proportions.
+Use ${size.bricks}. Make it clearly recognizable from the front, with good colors and proportions. Spend bricks on recognizable detail (shape, silhouette, color accents), not on hidden solid fill: hollow interiors are fine.
 
 COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
 
@@ -1277,7 +1310,7 @@ PHYSICS RULES — an automatic checker verifies all of them:
 4. Bricks in the same layer are only held together by bricks above or below that span the joint, so use running bond: stagger joints between layers, and make the lowest layers form a solid, interlocked base.
 5. Steps start at 1 and increase. Build bottom-up: when a step is built, each of its bricks must attach to the ground or to bricks from earlier steps (or to bricks of the same step that are already attached). A brick that hangs below an overhang goes in a LATER step than the brick it hangs from. Never put a brick where bricks from earlier steps are already both directly above and directly below it.
 
-TIPS: plan layer by layer on a grid and double-check every brick against rules 1–3; 6–20 steps with 1–12 bricks each; Japanese step titles and instructions that name the bricks used (for example 「赤い2×4を2本並べます」).
+TIPS: plan layer by layer on a grid and double-check every brick against rules 1–3; about ${size.layers} layers tall; ${size.steps} steps; use large bricks (2x6, 2x8, 4x6…) for bulk and small ones (1x1, 1x2, 1x3) for detail and curves; Japanese step titles and instructions that name the bricks used (for example 「赤い2×4を2本並べます」).
 
 OUTPUT: only this JSON, no other text:
 {"name":"日本語の作品名","nameEn":"English name","description":"日本語で1文の説明","steps":[{"step":1,"title":"短い日本語の見出し","description":"日本語の手順説明"}],"blocks":[[w,d,h,x,y,z,rotation,"color",step], …]}
@@ -1381,6 +1414,7 @@ for (const [sel, keyName] of [['#gen-size', 'size'], ['#gen-tier', 'tier']]) {
   $(sel).addEventListener('click', e => {
     const b = e.target.closest('button[data-v]'); if (!b) return;
     genOpts[keyName] = b.dataset.v;
+    if (keyName === 'size') setStatus('#gen-status', ['l', 'xl', 'auto'].includes(b.dataset.v) ? '大きな作品は設計に数分かかることがあります。「じっくり」にすると精度が上がります。' : '');
     $(sel).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
   });
 }
