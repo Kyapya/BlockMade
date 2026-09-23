@@ -18,25 +18,32 @@ LEGO風のブロックで設計した作品を3Dで確認できるビューア�
 - **Claude とのチャットで追加する**: 「〇〇を追加して」と頼むと、Claude が設計して `models/` に保存し、構造チェックを通します。
 - **アプリの「✦ AIで作る」から作る**: 作りたいものを入力すると、アプリ内で Claude が設計します。構造チェックで問題が見つかった場合は、最大2回まで AI に修正させ、それでも残れば自動で修復します。できた作品はそのブラウザに下書きとして保存され、Step 1 から組み上げて見せます。
   ライブラリに登録するには、ライブラリ画面のカードで「登録用にコピー」を押し、その内容を Claude とのチャットに貼り付けてください。
-- **手で追加する**: JSON を `models/` に置いて `node tools/validate.mjs` を実行すると、全作品を検証して `index.json` を作り直します。
+- **手で追加する**: JSON を `models/` に置き、`node tools/validate.mjs` と `node tools/build.mjs` を実行します。
 
 ## 起動方法
 
-アプリは `models/` を `fetch` で読み込むため、HTTPで配信する必要があります。
+`index.html` をブラウザで開くだけで動きます。共通コードと全作品を埋め込んだ、単一ファイルのページです。
+
+作品やコードを変更したら、次の2つを実行します。
 
 ```sh
-npx http-server .     # → http://localhost:8080/index.html
+node tools/validate.mjs   # 全作品を検証し、models/index.json を更新
+node tools/build.mjs      # index.html と dist/artifact.html を生成
 ```
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
-| `blockmade.html` | アプリ本体（Artifact用のページ本文）です |
-| `index.html` | ブラウザで開けるスタンドアロン版です。`node tools/build-standalone.mjs` で生成します |
+| `blockmade.html` | アプリ本体のソースです。`js/model-core.js` と `models/` を参照します |
+| `index.html` | ビルド済みのスタンドアロン版です（コードと作品を埋め込み済み） |
+| `dist/artifact.html` | claude.ai の Artifact として公開するページです（ビルドで生成し、コミットしません） |
 | `js/model-core.js` | モデルの正規化・構造チェック・自動修復・JSON変換を行います。ブラウザとCLIで共用します |
 | `models/*.json` | 作品データです |
 | `tools/validate.mjs` | 全作品を検証し、`models/index.json` を再生成します |
+| `tools/build.mjs` | 共通コードと全作品を埋め込み、単一ファイルのページを生成します |
+
+Artifact のビューアは、承認された CDN 以外から読み込むスクリプトを実行しません。そのため、公開するページには必要なものをすべて埋め込んでいます。
 
 ## モデル形式
 

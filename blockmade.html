@@ -386,8 +386,10 @@ button{cursor:pointer}
 </div>
 
 <!-- Model data lives in models/*.json (library index: models/index.json).
-     Validation / conversion logic shared with the CLI lives in js/model-core.js. -->
+     Validation / conversion logic shared with the CLI lives in js/model-core.js.
+     tools/build.mjs inlines both into a single self-contained page. -->
 <script src="js/model-core.js"></script>
+<!--LIBRARY-->
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 
@@ -1113,7 +1115,7 @@ async function rawForKey(key) {
   if (key.startsWith('repo:')) {
     const w = library.repo.find(x => 'repo:' + x.id === key);
     if (!w) throw new Error('作品が見つかりません。');
-    raw = await fetchJSON(w.file);
+    raw = w.raw || await fetchJSON(w.file);
   } else {
     const d = library.drafts.find(x => 'draft:' + x.id === key);
     if (!d) throw new Error('下書きが見つかりません。');
@@ -1539,8 +1541,12 @@ if (matchMedia('(pointer: coarse)').matches) $('#hint').textContent = '1本指: 
 function showViewportMessage(html) { $('#vp-msg-text').innerHTML = html; $('#vp-msg').hidden = false; }
 (async function boot() {
   let libErr = null;
-  try { library.repo = (await fetchJSON('models/index.json')).works || []; }
-  catch (e) { libErr = e; library.repo = []; }
+  // The published page embeds the library (tools/build.mjs); a dev copy fetches models/.
+  if (window.BLOCKMADE_LIBRARY) library.repo = window.BLOCKMADE_LIBRARY.works || [];
+  else {
+    try { library.repo = (await fetchJSON('models/index.json')).works || []; }
+    catch (e) { libErr = e; library.repo = []; }
+  }
   const keys = [...library.repo.map(w => 'repo:' + w.id), ...library.drafts.map(d => 'draft:' + d.id)];
   const last = store.get(LAST_KEY, null);
   const order = [last, ...keys].filter((k, i, a) => k && keys.includes(k) && a.indexOf(k) === i);
