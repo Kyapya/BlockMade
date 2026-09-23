@@ -344,7 +344,7 @@ button{cursor:pointer}
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gen-title">
     <div class="card-h"><h3 id="gen-title">✦ AIで作品を作る</h3><button class="btn" data-close>閉じる</button></div>
     <div class="body">
-      <p class="note">作りたいものを書くと、Claude がブロックの配置と組み立て手順を設計します。できた作品は構造チェックにかけ、問題があれば自動で直してから下書きに保存し、Step 1 から組み立てて見せます。</p>
+      <p class="note">作りたいものを書くと、Claude がまず設計図を作り、数Stepずつブロックを設計します。できた部分から3Dビューに組み上がり、各部分は構造チェックで確かめながら直します。完成したら下書きに保存し、Step 1 から組み立てて見せます。</p>
       <label class="sub" for="gen-prompt" style="margin:0">作りたいもの</label>
       <textarea id="gen-prompt" placeholder="例: 白と青の小さな灯台。てっぺんに黄色いライト"></textarea>
       <div class="ideas" id="gen-ideas">
@@ -1118,7 +1118,7 @@ function select(id, { reveal = false, fromView = false } = {}) {
   refresh();
 }
 
-function showModel(raw, key) {
+function showModel(raw, key, { keepCamera = false } = {}) {
   const m = normalizeModel(raw);
   stopPlay();
   state.model = m;
@@ -1129,7 +1129,7 @@ function showModel(raw, key) {
   Scene.build(m);
   buildStepChips();
   refresh();
-  Scene.flyTo(Scene.VIEWS.iso, { instant: true });
+  if (keepCamera) Scene.flyTo(null); else Scene.flyTo(Scene.VIEWS.iso, { instant: true });
   if (key) store.set(LAST_KEY, key);
   $('#vp-msg').hidden = true;
   return m;
@@ -1276,45 +1276,11 @@ const SIZES = {
 };
 const genOpts = { size: 'm', tier: 'default' };
 
-function toCompact(m) {
-  return {
-    name: m.name, nameEn: m.nameEn, description: m.description,
-    steps: m.steps.map(s => ({ step: s.step, title: s.title, description: s.description })),
-    blocks: m.blocks.map(b => { const a = [b.width, b.depth, b.height, b.x, b.y, b.z, b.rotation, b.color, b.step]; if (b.print) a.push(b.print.face); return a; })
-  };
-}
 // ---- line-based design format ------------------------------------------------
-// The AI writes one brick per line so a reply cut off by the length limit can be
-// resumed: complete lines are kept and the AI is asked to continue after them.
+// The AI first writes a short plan, then the bricks a few steps at a time, one
+// brick per line: a reply cut off by the length limit keeps its complete lines
+// and the AI is asked to continue after them.
 const BRICK_LINE = /^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*(?:,\s*([+-][xz]))?\s*$/i;
-function serializeDesign(c) {
-  const lines = [`NAME: ${c.name}`, `NAME_EN: ${c.nameEn || ''}`, `DESC: ${c.description || ''}`];
-  for (const st of c.steps) lines.push(`STEP ${st.step} | ${st.title} | ${st.description || ''}`);
-  lines.push('BRICKS');
-  for (const a of c.blocks) lines.push(a.join(','));
-  lines.push('END');
-  return lines.join('\n');
-}
-function parseDesign(text) {
-  const out = { name: '', nameEn: '', description: '', steps: [], blocks: [], ended: false };
-  const src = text.replace(/```[a-z]*\n?/gi, '');
-  for (const line of src.split('\n')) {
-    const t = line.trim();
-    if (!t) continue;
-    if (/^END$/i.test(t)) { out.ended = true; break; }
-    let mm;
-    if ((mm = t.match(/^NAME:\s*(.*)$/i))) out.name = mm[1].trim();
-    else if ((mm = t.match(/^NAME_EN:\s*(.*)$/i))) out.nameEn = mm[1].trim();
-    else if ((mm = t.match(/^DESC:\s*(.*)$/i))) out.description = mm[1].trim();
-    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*([^|]*)\|?\s*(.*)$/i))) out.steps.push({ step: +mm[1], title: mm[2].trim(), description: mm[3].trim() });
-    else if ((mm = t.match(BRICK_LINE))) {
-      const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v);
-      if (mm[10]) a.push(mm[10].toLowerCase());
-      out.blocks.push(a);
-    }
-  }
-  return out;
-}
 function parseFix(text) {
   const remove = new Set(), add = [];
   let adding = false;
@@ -1330,46 +1296,53 @@ function parseFix(text) {
   return { remove, add };
 }
 
-async function examplePrompt() {
-  try {
-    const w = library.repo.find(x => x.id === 'block-robot') || library.repo[0];
-    const raw = await rawForKey('repo:' + w.id);
-    return serializeDesign(toCompact(normalizeModel(raw)));
-  } catch (e) { return ''; }
-}
-function buildPrompt(request, example) {
-  const size = SIZES[genOpts.size];
-  return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
-Use ${size.bricks}. Make it clearly recognizable from the front, with good colors and proportions. Spend bricks on recognizable detail (shape, silhouette, color accents), not on hidden solid fill: hollow interiors are fine.
-
-COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
+function rulesText() {
+  return `COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
 
 BRICK LINE: w,d,h,x,y,z,rotation,color,step
 - (w, d) with w ≤ d must be one of: ${BRICK_SIZES.map(s => s.join('x')).join(' ')}. h is 1 (or 2 only for a 1x2 brick that is two layers tall).
 - rotation 0: w runs along X and d along Z (sx = w, sz = d). rotation 90: d runs along X and w along Z (sx = d, sz = w).
 - color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
-- Optional 10th value +z / -z / +x / -x prints a clock face on that side (only for 1,2,2 bricks).
 
-PHYSICS RULES — an automatic checker verifies all of them:
+PHYSICS RULES (checked automatically):
 1. No two bricks may overlap in space.
-2. Two bricks are CONNECTED only when one sits directly on top of the other (lower.y + lower.h == upper.y) AND their footprints overlap by at least one stud. Bricks side by side are NOT connected.
-3. Every brick must connect through a chain of such connections to a brick at y = 0. Each brick needs a brick directly below or directly above that overlaps its footprint. Overhangs are fine when part of the brick rests on something.
-4. Bricks in the same layer are only held together by bricks above or below that span the joint, so use running bond: stagger joints between layers, and make the lowest layers form a solid, interlocked base.
-5. Steps start at 1 and increase. Build bottom-up: when a step is built, each of its bricks must attach to the ground or to bricks from earlier steps (or to bricks of the same step that are already attached). A brick that hangs below an overhang goes in a LATER step than the brick it hangs from. Never put a brick where bricks from earlier steps are already both directly above and directly below it.
+2. Two bricks are CONNECTED only when one sits directly on top of the other (lower.y + lower.h == upper.y) AND their footprints overlap by at least one stud. Side by side is NOT connected.
+3. Every brick needs a brick directly below it (or directly above it) that overlaps its footprint, so that everything connects down to y = 0. Overhangs are fine when part of the brick rests on something.
+4. Use running bond: stagger joints between layers so each layer ties the layer below together.
+5. Build bottom-up: a brick must attach to the ground or to bricks placed in earlier steps.`;
+}
+function buildPlanPrompt(request) {
+  const size = SIZES[genOpts.size];
+  return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
+Use ${size.bricks}, about ${size.layers} layers tall, in ${size.steps} build steps. Make it clearly recognizable from the front, with good colors and proportions; spend bricks on recognizable detail and silhouette, not on hidden solid fill.
 
-TIPS: plan layer by layer on a grid and double-check every brick against rules 1–3; about ${size.layers} layers tall; ${size.steps} steps; use large bricks (2x6, 2x8, 4x6…) for bulk and small ones (1x1, 1x2, 1x3) for detail and curves; Japanese step titles and instructions that name the bricks used (for example 「赤い2×4を2本並べます」). List the bricks in build order (step by step, bottom-up).
+${rulesText()}
 
-OUTPUT: plain text in exactly this line format, nothing else (no JSON, no code fence, no commentary):
+First write only the PLAN (the bricks come later, step by step). Keep it short.
+OUTPUT exactly this line format, nothing else:
 NAME: 日本語の作品名
 NAME_EN: English name
 DESC: 日本語で1文の説明
-STEP 1 | 短い日本語の見出し | 日本語の手順説明
-STEP 2 | … (one line per step, all steps first)
-BRICKS
-w,d,h,x,y,z,rotation,color,step
-… (one brick per line)
-END
-${example ? `\nEXAMPLE of a valid model (a robot) in exactly this format:\n${example}\n` : ''}`;
+SIZE: footprint WxD studs centered around x=0..W, z=0..D; H layers; main colors
+STEP 1 | layers 0-1 | 24 | 短い日本語の見出し | 日本語の手順説明（使うブロックの色と大きさを書く）
+STEP 2 | layers 2-3 | 18 | … | …
+(one line per step: step number | layer range it builds | approximate brick count | title | instruction; steps go bottom-up)
+END`;
+}
+function buildChunkPrompt(request, planText, placed, chunk) {
+  const first = chunk[0].step, last = chunk[chunk.length - 1].step;
+  const est = chunk.reduce((n, s) => n + s.est, 0);
+  return `You are building 「${request}」 out of LEGO-style bricks, step by step, following this plan:
+
+${planText}
+
+${rulesText()}
+
+BRICKS ALREADY PLACED (steps before ${first}), one per line:
+${placed.length ? placed.map(a => a.join(',')).join('\n') : '(none yet — this is the first step)'}
+
+Now output ONLY the bricks for STEP ${first}${last !== first ? `–${last}` : ''} (${chunk.map(s => `step ${s.step}: layers ${s.from}-${s.to}, ~${s.est} bricks, ${s.title}`).join('; ')}), about ${est} bricks in total. Every new brick must rest on a brick already placed or on another new brick from a lower layer (or on the ground at y=0), and must not overlap any brick. Use the step number from the plan as the last value.
+OUTPUT: one brick per line (w,d,h,x,y,z,rotation,color,step), nothing else, then END.`;
 }
 
 /** Ask Claude and keep asking it to continue until the reply contains END.
@@ -1411,6 +1384,7 @@ function logLine(text, cls = 'run') {
   };
 }
 const SAMPLE_ERRORS = {
+  cancelled: '中止しました。',
   not_granted: 'Claude の利用が許可されませんでした。許可するとAI生成を使えます。',
   sampling_disabled: 'このアカウントではAI生成を使えません。',
   rate_limited: '利用が混み合っているか上限に達しました。しばらくしてから試してください。',
@@ -1428,6 +1402,43 @@ function openGenerate() {
   setTimeout(() => $('#gen-prompt').focus(), 30);
 }
 
+function parsePlan(text) {
+  const out = { name: '', nameEn: '', description: '', steps: [] };
+  for (const line of text.replace(/```[a-z]*\n?/gi, '').split('\n')) {
+    const t = line.trim(); let mm;
+    if (/^END$/i.test(t)) break;
+    if ((mm = t.match(/^NAME:\s*(.*)$/i))) out.name = mm[1].trim();
+    else if ((mm = t.match(/^NAME_EN:\s*(.*)$/i))) out.nameEn = mm[1].trim();
+    else if ((mm = t.match(/^DESC:\s*(.*)$/i))) out.description = mm[1].trim();
+    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*(?:layers?\s*)?(\d+)\s*(?:[-–~]\s*(\d+))?\s*\|\s*~?\s*(\d+)[^|]*\|\s*([^|]*)\|?\s*(.*)$/i)))
+      out.steps.push({ step: +mm[1], from: +mm[2], to: mm[3] !== undefined ? +mm[3] : +mm[2], est: Math.max(1, +mm[4]), title: mm[5].trim(), description: mm[6].trim() });
+  }
+  out.steps.sort((a, b) => a.step - b.step);
+  return out;
+}
+const CHUNK_BRICKS = 40;
+function chunkSteps(steps) {
+  const chunks = []; let cur = [], n = 0;
+  for (const st of steps) {
+    if (cur.length && n + st.est > CHUNK_BRICKS) { chunks.push(cur); cur = []; n = 0; }
+    cur.push(st); n += st.est;
+  }
+  if (cur.length) chunks.push(cur);
+  return chunks;
+}
+const brickLines = t => t.split('\n').map(l => l.match(BRICK_LINE)).filter(Boolean)
+  .map(mm => { const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v); if (mm[10]) a.push(mm[10].toLowerCase()); return a; });
+
+/** One sampling call with a single retry on an empty answer (a long silent
+ *  think can end with no text); the retry uses the quick tier. */
+async function askWithRetry(turns, opts, onProgress) {
+  try { return await sampleUntilEnd(turns, opts, onProgress); }
+  catch (e) {
+    if (!e || !['empty_completion', 'upstream_error'].includes(e.code)) throw e;
+    return await sampleUntilEnd(turns, { ...opts, modelTier: 'quick' }, onProgress);
+  }
+}
+
 async function generate() {
   const request = $('#gen-prompt').value.trim();
   if (!request) { setStatus('#gen-status', '作りたいものを入力してください。', 'bad'); $('#gen-prompt').focus(); return; }
@@ -1441,42 +1452,83 @@ async function generate() {
   genTimer = setInterval(() => { $('#gen-elapsed').textContent = `${Math.round((Date.now() - t0) / 1000)} 秒`; }, 500);
   const opts = { signal, modelTier: genOpts.tier, cache: false };
   const extra = { prompt: request, author: 'AI (Claude)', createdAt: new Date().toISOString().slice(0, 10) };
-  const countBricks = t => t.split('\n').filter(l => BRICK_LINE.test(l)).length;
+  let design = null, previewed = false;
+  const preview = () => {
+    if (!design.blocks.length) return;
+    try { showModel(fromCompact(design, extra), null, { keepCamera: previewed }); previewed = true; } catch (e) { /* partial model not drawable yet */ }
+  };
   try {
-    const example = await examplePrompt();
-    const prompt = buildPrompt(request, example);
-    const line = logLine('Claude が設計しています…（最初の出力まで数十秒かかることがあります）');
-    const text = await sampleUntilEnd([{ role: 'user', content: prompt }], opts, (t, part) =>
-      line.meta(`${countBricks(t)} ブロック${part ? `・続き ${part} 回目` : ''}`));
-    let design = parseDesign(text);
-    if (!design.blocks.length) throw new Error('AIの出力にブロックが見つかりませんでした。もう一度試してください。');
-    if (!design.ended) logLine('出力が最後まで届かなかったため、届いた分で組み立てます。', 'bad');
-    let raw = fromCompact(design, extra), m = normalizeModel(raw), c = validateModel(m);
-    line.done('ok', `設計できました: ${m.name}（${m.blocks.length} ブロック・${m.steps.length} Step）`);
+    // 1. plan
+    const planLine = logLine('設計図（計画）を作っています…');
+    const planText = await askWithRetry([{ role: 'user', content: buildPlanPrompt(request) }], opts, t => planLine.meta(`${t.length.toLocaleString()} 文字`));
+    const plan = parsePlan(planText);
+    if (!plan.steps.length) throw new Error('設計図を読み取れませんでした。もう一度試してください。');
+    const total = plan.steps.reduce((n, s) => n + s.est, 0);
+    planLine.done('ok', `設計図: ${plan.name || request}（${plan.steps.length} Step・約 ${total} ブロック）`);
+    design = { name: plan.name || request, nameEn: plan.nameEn, description: plan.description, steps: plan.steps.map(s => ({ step: s.step, title: s.title, description: s.description })), blocks: [] };
+    const cleanPlan = planText.split('\n').filter(l => !/^END$/i.test(l.trim())).join('\n').trim();
 
-    for (let round = 1; round <= 2; round++) {
-      const chk = logLine('構造チェック中…');
-      if (c.allOk) { chk.done('ok', '構造チェック: 4項目すべて OK'); break; }
-      const issues = describeIssues(m, c, 40).map(t => t.replace(/block_0*(\d+)/g, '#$1'));
-      chk.done('bad', `構造チェック: ${issues.length} 件の問題`);
-      const fixLine = logLine(`見つかった問題を直してもらっています（${round}回目）…`);
-      const fixText = await sampleUntilEnd([
-        { role: 'user', content: prompt },
-        { role: 'assistant', content: serializeDesign(design) },
-        { role: 'user', content: `The automatic checker found these problems (brick #N = the N-th line under BRICKS, starting at 1):\n${issues.join('\n')}\n\nReply ONLY with the changes that fix every problem, in this format, then END:\nREMOVE n,n,n   (numbers of bricks to delete; omit the line if none)\nADD\nw,d,h,x,y,z,rotation,color,step   (one new brick per line; may be empty)\nEND\nKeep the design recognizable.` }
-      ], opts, t => fixLine.meta(`${t.length.toLocaleString()} 文字`));
-      const fx = parseFix(fixText);
-      design = { ...design, blocks: [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add] };
-      raw = fromCompact(design, extra); m = normalizeModel(raw); c = validateModel(m);
-      fixLine.done('ok', `修正を反映しました（削除 ${fx.remove.size}・追加 ${fx.add.length}）`);
+    // 2. bricks, a few steps at a time, each part checked and fixed on its own
+    const chunks = chunkSteps(plan.steps);
+    for (const [ci, chunk] of chunks.entries()) {
+      const a = chunk[0].step, b = chunk[chunk.length - 1].step;
+      const label = a === b ? `Step ${a}` : `Step ${a}–${b}`;
+      const line = logLine(`${label} のブロックを設計中…（${ci + 1}/${chunks.length}）`);
+      const text = await askWithRetry([{ role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) }], opts,
+        t => line.meta(`${brickLines(t).length} ブロック`));
+      const allowed = new Set(chunk.map(s => s.step));
+      let fresh = brickLines(text).map(br => { if (!allowed.has(br[8])) br[8] = br[8] < a ? a : b; return br; });
+      // local check of this part only
+      const partIssues = () => {
+        const m = normalizeModel(fromCompact({ ...design, blocks: [...design.blocks, ...fresh] }, extra));
+        const c = validateModel(m), base = design.blocks.length;
+        const mine = id => m.byId.get(id).index >= base;
+        const out = [];
+        for (const [x, y] of c.collisions.pairs) if (mine(x) || mine(y)) out.push(`#${(mine(x) ? m.byId.get(x) : m.byId.get(y)).index - base + 1} overlaps another brick`);
+        for (const id of c.supported.floating) if (mine(id)) out.push(`#${m.byId.get(id).index - base + 1} (${m.byId.get(id).type} x${m.byId.get(id).x} y${m.byId.get(id).y} z${m.byId.get(id).z}) is not connected to anything below or above`);
+        return out;
+      };
+      let issues = fresh.length ? partIssues() : [];
+      if (issues.length) {
+        line.meta(`${fresh.length} ブロック・${issues.length} 件を修正中`);
+        try {
+          const fixText = await askWithRetry([
+            { role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) },
+            { role: 'assistant', content: fresh.map(x => x.join(',')).join('\n') + '\nEND' },
+            { role: 'user', content: `The checker found problems in your new bricks (#N = the N-th line of your answer):\n${issues.slice(0, 30).join('\n')}\n\nReply ONLY with the changes, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }
+          ], opts, () => {});
+          const fx = parseFix(fixText);
+          fresh = [...fresh.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!allowed.has(br[8])) br[8] = b; return br; })];
+          issues = partIssues();
+        } catch (e) { if (e && e.code === 'cancelled') throw e; }
+      }
+      design.blocks.push(...fresh);
+      line.done(fresh.length ? 'ok' : 'bad', `${label}: ${fresh.length} ブロック${issues.length ? `（残りの問題 ${issues.length} 件は最後に自動修復）` : ''}`);
+      preview();
     }
+    if (!design.blocks.length) throw new Error('ブロックを1つも設計できませんでした。もう一度試してください。');
+
+    // 3. whole-model check, deterministic repair as the last resort
+    let raw = fromCompact(design, extra), m = normalizeModel(raw), c = validateModel(m);
+    const chk = logLine('全体の構造チェック中…');
     if (!c.allOk) {
-      const fix = logLine('残った問題を自動で修復しています…');
+      // one whole-model fix round: catches what part checks cannot see,
+      // such as grounded pieces that are not tied to the rest of the model
+      const issues = describeIssues(m, c, 30).map(t => t.replace(/block_0*(\d+)/g, '#$1'));
+      chk.set(`全体の構造チェック: ${issues.length} 件の問題を直してもらっています…`);
+      try {
+        const fixText = await askWithRetry([{ role: 'user', content: `This LEGO-style model of 「${request}」 has structural problems.\n\n${rulesText()}\n\nALL BRICKS (#N = N-th line):\n${design.blocks.map((x, i) => `#${i + 1} ${x.join(',')}`).join('\n')}\n\nPROBLEMS:\n${issues.join('\n')}\n\nA group that is "not connected" needs a brick above or below that spans the joint to the main model. Reply ONLY with the changes that fix every problem, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }], opts, () => {});
+        const fx = parseFix(fixText);
+        const lastStep = design.steps.length ? design.steps[design.steps.length - 1].step : 1;
+        design.blocks = [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!design.steps.some(st => st.step === br[8])) br[8] = lastStep; return br; })];
+        raw = fromCompact(design, extra); m = normalizeModel(raw); c = validateModel(m);
+      } catch (e) { if (e && e.code === 'cancelled') throw e; }
+    }
+    if (c.allOk) chk.done('ok', `構造チェック: 4項目すべて OK（${m.blocks.length} ブロック）`);
+    else {
       const rep = autoRepair(raw);
       raw = rep.raw; m = normalizeModel(raw); c = validateModel(m);
-      fix.done(c.allOk ? 'ok' : 'bad', c.allOk ? `自動修復で解決（${rep.removed.length} 個のブロックを取り除きました）` : '一部の問題が残っています（構造チェックの画面で確認できます）');
-    } else if (c.allOk && !$('#gen-log').lastChild.textContent.includes('OK')) {
-      logLine('構造チェック: 4項目すべて OK', 'ok');
+      chk.done(c.allOk ? 'ok' : 'bad', c.allOk ? `自動修復で解決（${rep.removed.length} 個を取り除き、${m.blocks.length} ブロック）` : '一部の問題が残っています（構造チェックの画面で確認できます）');
     }
     const key = addDraft(raw, 'ai');
     library.rawCache.set(key, raw);
@@ -1485,12 +1537,23 @@ async function generate() {
     setStatus('#gen-status', `「${m.name}」を下書きに保存しました。`, 'ok');
     setTimeout(() => { closeModals(); startPlay(); }, 900);
   } catch (e) {
-    if (e && e.code === 'cancelled') { logLine('中止しました。', 'bad'); }
+    const keep = design && design.blocks.length;
+    if (e && e.code === 'cancelled') logLine('中止しました。', 'bad');
     else {
       const msg = (e && SAMPLE_ERRORS[e.code]) || (e && e.message) || '設計に失敗しました。もう一度試してください。';
       logLine(msg, 'bad');
       setStatus('#gen-status', msg, 'bad');
       if (e && ['not_granted', 'sampling_disabled'].includes(e.code)) { sampleNS = null; }
+    }
+    if (keep) {
+      // keep the part that was built so far as a draft rather than losing it
+      try {
+        const rep = autoRepair(fromCompact(design, extra));
+        const key = addDraft(rep.raw, 'ai');
+        library.rawCache.set(key, rep.raw);
+        showModel(rep.raw, key);
+        logLine(`途中まで（${rep.raw.blocks.length} ブロック）を下書きに保存しました。`, 'ok');
+      } catch (e2) { /* nothing usable */ }
     }
   } finally {
     clearInterval(genTimer);
@@ -1694,6 +1757,6 @@ function showViewportMessage(html) { $('#vp-msg-text').innerHTML = html; $('#vp-
   $('#model-name').textContent = '作品なし';
 })();
 
-window.BlockMade = { state, library, showModel, openWork, startPlay, buildPrompt };
+window.BlockMade = { state, library, showModel, openWork, startPlay, buildPlanPrompt, parsePlan };
 }
 </script>
