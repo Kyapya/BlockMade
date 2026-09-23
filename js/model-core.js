@@ -275,6 +275,7 @@ function modelToJSON(m) {
 }
 
 const api = { STANDARD_COLORS, BRICK_SIZES, normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, cleanBlock, overlapXZ, overlapY };
-if (typeof module !== 'undefined' && module.exports) module.exports = api;
-else root.BlockModel = api;
+// Always expose the browser global; also export for node (tools/*.mjs).
+root.BlockModel = api;
+if (typeof module === 'object' && module && typeof module.exports === 'object') module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
