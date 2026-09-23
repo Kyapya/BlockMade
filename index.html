@@ -1,0 +1,1371 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>BlockMade 時計塔</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0e1115; --panel:#151a20; --panel-2:#1b2129; --panel-3:#232a34;
+  --line:#28303a; --line-2:#36404c;
+  --text:#e8ebef; --muted:#939dab; --faint:#687282;
+  --accent:#f2b544; --accent-ink:#1c1405; --accent-soft:rgba(242,181,68,.13);
+  --select:#5fd6e8; --select-soft:rgba(95,214,232,.13);
+  --ok:#62d392; --ok-soft:rgba(98,211,146,.12);
+  --bad:#f37474; --bad-soft:rgba(243,116,116,.12);
+  --radius:12px;
+  --f-display:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html{height:100%;background:var(--bg)}
+body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--select);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;padding-inline:16px;padding-block:12px 16px}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:6px;min-width:0}
+.brand-mark{width:30px;height:22px;border-radius:4px;background:var(--accent);position:relative;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.brand-mark::before,.brand-mark::after{content:"";position:absolute;top:-5px;width:8px;height:5px;border-radius:2px 2px 0 0;background:var(--accent)}
+.brand-mark::before{left:5px}.brand-mark::after{right:5px}
+.brand-name{font-family:var(--f-display);font-size:18px;letter-spacing:.02em;line-height:1}
+.brand-model{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tb-spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--panel-2);border-radius:8px;padding:7px 12px;font-size:13px;line-height:1.2;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
+.btn:hover{background:var(--panel-3);border-color:#46515f}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn .k{font-family:var(--f-mono);font-size:10.5px;color:var(--faint);border:1px solid var(--line-2);border-radius:4px;padding:0 4px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn.primary:hover{background:#ffc75e}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:9px;padding:2px;background:var(--panel)}
+.seg button{border:0;background:transparent;border-radius:7px;padding:6px 12px;font-size:13px;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--panel-3);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2)}
+.check-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-size:12.5px;border:1px solid transparent;background:transparent;white-space:nowrap}
+.check-badge.ok{color:var(--ok);background:var(--ok-soft);border-color:rgba(98,211,146,.35)}
+.check-badge.bad{color:var(--bad);background:var(--bad-soft);border-color:rgba(243,116,116,.4)}
+
+/* ---------- workspace ---------- */
+.work{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:12px;min-height:0}
+.viewport{position:relative;min-height:0;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+  background:radial-gradient(120% 90% at 50% 30%,#1c232d 0%,#12161c 55%,#0c0f13 100%)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.ov{position:absolute;z-index:2}
+.ov-tl{top:12px;left:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 24px);pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:6px;background:rgba(14,17,21,.78);backdrop-filter:blur(6px);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.chip b{color:var(--text);font-weight:500}
+.chip.accent{color:var(--accent);border-color:rgba(242,181,68,.45)}
+.ov-tr{top:12px;right:12px;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.viewpad{display:grid;grid-template-columns:repeat(3,auto);gap:4px;background:rgba(14,17,21,.78);backdrop-filter:blur(6px);border:1px solid var(--line-2);border-radius:10px;padding:5px}
+.viewpad button{border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 8px;font-size:12px;color:var(--muted);min-width:44px}
+.viewpad button:hover{background:var(--panel-3);color:var(--text)}
+.viewpad .span3{grid-column:1/-1;border-color:var(--line-2);color:var(--text)}
+.ov-bottom{left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;justify-content:space-between;pointer-events:none}
+.ov-bottom > *{pointer-events:auto}
+.layerbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(14,17,21,.84);backdrop-filter:blur(6px);border:1px solid var(--line-2);border-radius:10px;padding:7px 10px;max-width:100%}
+.layerbar .lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.layerbar .val{font-family:var(--f-mono);font-size:12.5px;min-width:112px}
+.layerbar input[type=range]{width:180px;max-width:40vw;accent-color:var(--accent)}
+.iconbtn{border:1px solid var(--line-2);background:var(--panel-2);border-radius:6px;width:28px;height:28px;display:inline-grid;place-items:center;font-size:12px;padding:0}
+.iconbtn:hover{background:var(--panel-3)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.hint{font-size:11.5px;color:var(--faint);background:rgba(14,17,21,.7);border-radius:8px;padding:5px 9px;pointer-events:none!important}
+.selcard{position:absolute;left:12px;top:48px;z-index:2;background:rgba(14,17,21,.88);backdrop-filter:blur(6px);border:1px solid rgba(95,214,232,.5);border-radius:10px;padding:8px 12px;font-size:12.5px;min-width:170px}
+.selcard .t{font-family:var(--f-mono);color:var(--select);font-weight:600}
+.selcard .x{position:absolute;top:4px;right:6px;border:0;background:none;color:var(--faint);font-size:14px}
+#tip{position:absolute;z-index:3;pointer-events:none;background:rgba(10,12,15,.92);border:1px solid var(--line-2);border-radius:6px;padding:3px 8px;font-size:12px;white-space:nowrap;transform:translate(12px,12px)}
+.gl-error{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+
+/* ---------- side ---------- */
+.side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:500}
+.steps-card .body{padding:14px}
+.step-num{font-family:var(--f-display);font-size:26px;line-height:1;letter-spacing:.01em}
+.step-num small{font-family:var(--f-mono);font-size:14px;color:var(--muted);margin-left:4px}
+.step-title{font-size:16px;font-weight:700;margin:10px 0 12px;text-wrap:balance}
+.sub{font-size:11.5px;letter-spacing:.1em;color:var(--faint);margin:0 0 6px;text-transform:uppercase}
+.adds{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:5px}
+.adds li{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid rgba(242,181,68,.28);border-radius:8px;padding:6px 10px}
+.adds .nm{flex:1;min-width:0}
+.adds .ct{font-family:var(--f-mono);color:var(--accent);font-weight:600}
+.desc{margin:0 0 14px;color:#cfd5dd;line-height:1.7}
+.progress{height:6px;background:var(--panel-3);border-radius:99px;overflow:hidden}
+.progress span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
+.nav{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:0 14px 12px}
+.nav .btn{justify-content:center;padding:9px 12px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;padding:0 14px 14px}
+.chips button{width:30px;height:26px;border-radius:6px;border:1px solid var(--line-2);background:var(--panel-2);font-family:var(--f-mono);font-size:11.5px;color:var(--muted);padding:0}
+.chips button.done{background:#262d37;color:#b9c1cc}
+.chips button.cur{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.overview h2{font-family:var(--f-display);font-weight:400;font-size:22px;margin:6px 0 6px;letter-spacing:.02em}
+.overview p{margin:0 0 12px;color:#c3cad3}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0}
+.stats div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
+.stats dt{font-size:10.5px;color:var(--faint);letter-spacing:.06em}
+.stats dd{margin:0;font-family:var(--f-mono);font-size:15px;font-weight:600}
+
+.tabs-card{display:flex;flex-direction:column;min-height:260px;flex:1}
+.tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:transparent;padding:8px 10px 9px;font-size:12.5px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent)}
+.tabs .dot{width:7px;height:7px;border-radius:50%}
+.tabpanel{padding:12px 14px 14px;overflow:auto;min-height:0;flex:1}
+.subseg{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.subseg button{border:1px solid var(--line-2);background:var(--panel-2);border-radius:6px;padding:4px 9px;font-size:12px;color:var(--muted)}
+.subseg button[aria-pressed="true"]{color:var(--text);border-color:#56616f;background:var(--panel-3)}
+.total{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.total b{font-family:var(--f-mono);font-size:18px;color:var(--text)}
+.plist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:3px}
+.plist li button{width:100%;display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:10px;text-align:left;border:1px solid transparent;background:transparent;border-radius:7px;padding:5px 8px}
+.plist li button:hover{background:var(--panel-2)}
+.plist li button[aria-pressed="true"]{background:var(--select-soft);border-color:rgba(95,214,232,.45)}
+.plist .cnt{font-family:var(--f-mono);font-weight:600}
+.plist .meta{font-size:11.5px;color:var(--faint)}
+.pgroup{margin:10px 0 4px;font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;letter-spacing:.04em}
+.pgroup:first-child{margin-top:0}
+.glyph{display:block}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid rgba(255,255,255,.18);vertical-align:-1px;flex:none}
+.swrow{display:inline-flex;gap:3px;flex-wrap:wrap}
+
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.checks > li{border:1px solid var(--line);border-radius:9px;padding:8px 11px;background:var(--panel-2)}
+.checks .row{display:flex;gap:9px;align-items:baseline}
+.checks .ic{font-weight:700;width:16px;text-align:center;flex:none}
+.checks .ok .ic{color:var(--ok)}
+.checks .bad .ic{color:var(--bad)}
+.checks .name{font-family:var(--f-mono);font-weight:600;font-size:13px}
+.checks .bad .name{color:var(--bad)}
+.checks .det{font-size:12px;color:var(--muted);margin:2px 0 0 25px}
+.checks li.bad{border-color:rgba(243,116,116,.45);background:var(--bad-soft)}
+.issues{list-style:none;margin:6px 0 0 25px;padding:0;display:flex;flex-direction:column;gap:3px}
+.issues button{border:0;background:none;padding:0;text-align:left;font-size:12px;color:#ffc2c2;text-decoration:underline dotted;text-underline-offset:3px}
+.check-note{font-size:12px;color:var(--faint);margin:10px 0 0;line-height:1.6}
+
+.selpanel dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:10px 0 12px}
+.selpanel dt{color:var(--faint);font-size:12px}
+.selpanel dd{margin:0;font-family:var(--f-mono);font-size:13px}
+.selpanel .big{font-family:var(--f-display);font-size:22px;letter-spacing:.02em}
+.selpanel .row{display:flex;gap:10px;align-items:center}
+.empty{color:var(--faint);font-size:13px;padding:6px 0;line-height:1.7}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(5,7,9,.66);display:grid;place-items:center;padding:16px}
+.sheet{width:min(760px,100%);max-height:min(88vh,860px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.sheet .card-h h3{margin:0;font-size:15px}
+.sheet .body{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.sheet textarea{width:100%;min-height:300px;flex:1;resize:vertical;background:#0c0f13;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font:12px/1.5 var(--f-mono);color:#d7dde5;white-space:pre;overflow:auto}
+.sheet .note{font-size:12.5px;color:var(--muted);margin:0}
+.status{font-size:12.5px;min-height:1.4em}
+.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
+.filelabel{position:relative;overflow:hidden}
+.filelabel input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px){
+  #app{height:auto;min-height:100%}
+  .work{grid-template-columns:1fr}
+  .viewport{height:min(66svh,620px);min-height:380px}
+  .side{overflow:visible;padding-right:0}
+  .tabs-card{min-height:0}
+  .tabpanel{max-height:none}
+}
+@media (max-width: 560px){
+  .brand-model{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .layerbar input[type=range]{width:120px}
+  .hint{display:none}
+  .viewpad button{min-width:38px;padding:4px 6px}
+  .btn .k{display:none}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">BlockMade</span>
+      <span class="brand-model" id="model-name">—</span>
+    </div>
+    <div class="seg" role="group" aria-label="表示モード">
+      <button id="btn-complete" aria-pressed="true">完成形を見る</button>
+      <button id="btn-build" aria-pressed="false">組み立てモード</button>
+    </div>
+    <div class="tb-group">
+      <button class="btn" id="btn-explode" aria-pressed="false">分解表示 <span class="k">E</span></button>
+      <button class="btn" id="btn-reset">カメラをリセット <span class="k">R</span></button>
+    </div>
+    <div class="tb-spacer"></div>
+    <div class="tb-group">
+      <button class="check-badge" id="check-badge" title="構造チェックを開く">—</button>
+      <button class="btn" id="btn-export">JSONを書き出す</button>
+      <button class="btn" id="btn-import">JSONを読み込む</button>
+    </div>
+  </header>
+
+  <main class="work">
+    <section class="viewport" id="viewport" aria-label="3Dビュー">
+      <canvas id="gl" tabindex="0"></canvas>
+      <div class="ov ov-tl" id="mode-chips"></div>
+      <div class="selcard" id="selcard" hidden></div>
+      <div class="ov ov-tr">
+        <div class="viewpad" role="group" aria-label="視点">
+          <button data-view="front">正面</button>
+          <button data-view="back">背面</button>
+          <button data-view="top">上</button>
+          <button data-view="left">左</button>
+          <button data-view="right">右</button>
+          <button data-view="iso">斜め</button>
+          <button class="span3" data-view="fit">全体を表示 <span class="mono" style="color:var(--faint)">F</span></button>
+        </div>
+      </div>
+      <div class="ov ov-bottom">
+        <div class="layerbar" role="group" aria-label="レイヤー表示">
+          <span class="lbl">Layer</span>
+          <button class="iconbtn" id="layer-prev" aria-label="下のレイヤー">▼</button>
+          <input type="range" id="layer-range" min="0" max="1" value="0" aria-label="レイヤー">
+          <button class="iconbtn" id="layer-next" aria-label="上のレイヤー">▲</button>
+          <span class="val" id="layer-val">全レイヤー</span>
+          <label class="toggle"><input type="checkbox" id="layer-only"> このレイヤーのみ</label>
+        </div>
+        <div class="hint" id="hint">ドラッグ: 回転 · 右ドラッグ / Shift+ドラッグ: パン · ホイール: ズーム · クリック: 選択</div>
+      </div>
+      <div id="tip" hidden></div>
+    </section>
+
+    <aside class="side">
+      <section class="card steps-card" aria-label="組み立て手順">
+        <div class="card-h"><span class="eyebrow" id="steps-eyebrow">Instructions</span><span class="mono" style="font-size:12px;color:var(--faint)">← → キーで移動</span></div>
+        <div class="body" id="steps-body"></div>
+        <div class="nav">
+          <button class="btn" id="btn-prev">← 前へ</button>
+          <button class="btn primary" id="btn-next">次へ →</button>
+        </div>
+        <div class="chips" id="step-chips" aria-label="Step一覧"></div>
+      </section>
+
+      <section class="card tabs-card">
+        <div class="tabs" role="tablist">
+          <button role="tab" id="tab-parts" aria-selected="true" data-tab="parts">Parts</button>
+          <button role="tab" id="tab-check" aria-selected="false" data-tab="check">Structure Check <span class="dot" id="tab-check-dot"></span></button>
+          <button role="tab" id="tab-selected" aria-selected="false" data-tab="selected">Selected Block</button>
+        </div>
+        <div class="tabpanel" id="panel-parts" role="tabpanel"></div>
+        <div class="tabpanel" id="panel-check" role="tabpanel" hidden></div>
+        <div class="tabpanel selpanel" id="panel-selected" role="tabpanel" hidden></div>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="card-h"><h3 id="modal-title">モデルJSON</h3><button class="btn" id="modal-close">閉じる</button></div>
+    <div class="body">
+      <p class="note" id="modal-note"></p>
+      <textarea id="json-text" spellcheck="false" aria-label="モデルJSON"></textarea>
+      <div class="status" id="modal-status" role="status"></div>
+      <div class="btnrow" id="export-actions">
+        <button class="btn primary" id="btn-copy">コピー</button>
+        <button class="btn" id="btn-save">.json ファイルとして保存</button>
+      </div>
+      <div class="btnrow" id="import-actions">
+        <button class="btn primary" id="btn-apply">このJSONでモデルを復元</button>
+        <label class="btn filelabel">ファイルを選ぶ…<input type="file" id="file-input" accept=".json,application/json"></label>
+        <button class="btn" id="btn-sample">サンプル(時計塔)に戻す</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     MODEL_DATA — ここだけを差し替えれば別の作品（宇宙船・家・ロボット…）になります。
+     座標: X=左右, Y=高さ(ブロック段数), Z=前後(+Zが正面)。単位はスタッド。
+     x,y,z はブロックの「最小角」。rotation 0 → 幅=X方向/奥行=Z方向、90 → 入れ替え。
+     height はブロック段数（1 = 通常ブロック, 2 = 2段分の高さ）。
+     ====================================================================== -->
+<script id="model-data">
+const MODEL_DATA = {
+  format: "blockmade.model",
+  version: 1,
+  name: "小さな時計塔",
+  nameEn: "Small Clock Tower",
+  description: "8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。",
+  colors: {
+    "dark-gray":  { name: "Dark Gray",  hex: "#59616b" },
+    "light-gray": { name: "Light Gray", hex: "#a8afb7" },
+    "tan":        { name: "Tan",        hex: "#d6b97c" },
+    "brown":      { name: "Brown",      hex: "#6e452b" },
+    "green":      { name: "Green",      hex: "#2e8b50" },
+    "trans-blue": { name: "Trans Blue", hex: "#7cc3f0", opacity: 0.55 },
+    "white":      { name: "White",      hex: "#f0efe9" },
+    "gold":       { name: "Gold",       hex: "#d8a83c", metalness: 0.35, roughness: 0.34 },
+    "red":        { name: "Red",        hex: "#b23a30" }
+  },
+  steps: [
+    { step: 1,  title: "土台 1段目", description: "ダークグレーの2×8を4本、長い辺を前後(Z)方向に向けて左右に隙間なく並べ、8×8の正方形の土台をつくります。" },
+    { step: 2,  title: "土台 2段目", description: "2×8を4本、90°回して1段目と直交するように重ねます。各ブロックが1段目の4本すべてをまたぐので、土台全体が1つに固定されます。" },
+    { step: 3,  title: "石段と植え込み", description: "正面中央に砂色の2×2を置いて石段にし、土台の四隅に緑の2×2で植え込みをつくります。" },
+    { step: 4,  title: "塔の1段目", description: "土台中央の4×4の範囲に壁を立てます。背面に1×4、左右に1×2。正面は扉口を空けるため、両端に1×1の柱だけを置きます。" },
+    { step: 5,  title: "扉", description: "扉口から1スタッド奥に茶色の1×2を2段積み、奥まった扉にします。" },
+    { step: 6,  title: "塔の2段目", description: "左右に1×4を前後方向に載せ、下段の継ぎ目をまたがせます。背面には1×2。正面は扉口なので空けたままにします。" },
+    { step: 7,  title: "扉の上のまぐさ", description: "正面に砂色の1×4を渡して扉口の上をふさぎます（まぐさ）。左右の柱が両端を支えます。背面に1×4、左右に1×2を置いて段を仕上げます。" },
+    { step: 8,  title: "前後の窓", description: "左右に1×4を載せ、前後の中央に透明ブルーの1×2を入れて窓にします。" },
+    { step: 9,  title: "左右の窓", description: "前後に1×4を渡し、左右の中央に透明ブルーの1×2を入れて側面の窓にします。" },
+    { step: 10, title: "時計下の帯", description: "砂色のブロックで1段積み、時計部分の下に装飾の帯をつくります。積み方は2段目と同じです。" },
+    { step: 11, title: "時計部の四隅", description: "塔の4つの角に金色の1×1を立てます。" },
+    { step: 12, title: "時計の文字盤", description: "時計がプリントされた白い1×2×2（2段分の高さ）を4面に取り付けます。文字盤は外側に向けます。" },
+    { step: 13, title: "四隅の2段目", description: "金色の1×1をもう1段重ね、文字盤と高さをそろえます。" },
+    { step: 14, title: "軒（コーニス）", description: "前後に2×6、左右に2×2を置いて、塔より1スタッド張り出した6×6の軒をつくります。内側の列が時計部の上にかみ合って支えます。" },
+    { step: 15, title: "角の飾り", description: "軒の四隅の張り出し部分に金色の1×1を立てます。" },
+    { step: 16, title: "屋根", description: "赤い2×4を2本並べて4×4の屋根にします。この2本が軒の4つの部品をまたいで1つにまとめます。" },
+    { step: 17, title: "頂部", description: "中央に赤い2×2を重ね、最後に金色の2×2を頂上に載せて完成です。" }
+  ],
+  blocks: [
+    { id: "block_001", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
+    { id: "block_002", type: "2x8",   width: 2, depth: 8, height: 1, x: 2, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
+    { id: "block_003", type: "2x8",   width: 2, depth: 8, height: 1, x: 4, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
+    { id: "block_004", type: "2x8",   width: 2, depth: 8, height: 1, x: 6, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
+    { id: "block_005", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 0, rotation: 90, color: "dark-gray",  step: 2 },
+    { id: "block_006", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 2, rotation: 90, color: "dark-gray",  step: 2 },
+    { id: "block_007", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 4, rotation: 90, color: "dark-gray",  step: 2 },
+    { id: "block_008", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 6, rotation: 90, color: "dark-gray",  step: 2 },
+    { id: "block_009", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 2,  z: 6, rotation: 0,  color: "tan",        step: 3 },
+    { id: "block_010", type: "2x2",   width: 2, depth: 2, height: 1, x: 0, y: 2,  z: 0, rotation: 0,  color: "green",      step: 3 },
+    { id: "block_011", type: "2x2",   width: 2, depth: 2, height: 1, x: 6, y: 2,  z: 0, rotation: 0,  color: "green",      step: 3 },
+    { id: "block_012", type: "2x2",   width: 2, depth: 2, height: 1, x: 0, y: 2,  z: 6, rotation: 0,  color: "green",      step: 3 },
+    { id: "block_013", type: "2x2",   width: 2, depth: 2, height: 1, x: 6, y: 2,  z: 6, rotation: 0,  color: "green",      step: 3 },
+    { id: "block_014", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 2,  z: 2, rotation: 90, color: "light-gray", step: 4 },
+    { id: "block_015", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 2,  z: 3, rotation: 0,  color: "light-gray", step: 4 },
+    { id: "block_016", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 2,  z: 3, rotation: 0,  color: "light-gray", step: 4 },
+    { id: "block_017", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 2,  z: 5, rotation: 0,  color: "light-gray", step: 4 },
+    { id: "block_018", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 2,  z: 5, rotation: 0,  color: "light-gray", step: 4 },
+    { id: "block_019", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 2,  z: 4, rotation: 90, color: "brown",      step: 5 },
+    { id: "block_020", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 3,  z: 4, rotation: 90, color: "brown",      step: 5 },
+    { id: "block_021", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 3,  z: 2, rotation: 0,  color: "light-gray", step: 6 },
+    { id: "block_022", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 3,  z: 2, rotation: 0,  color: "light-gray", step: 6 },
+    { id: "block_023", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 3,  z: 2, rotation: 90, color: "light-gray", step: 6 },
+    { id: "block_024", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 4,  z: 2, rotation: 90, color: "light-gray", step: 7 },
+    { id: "block_025", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 4,  z: 5, rotation: 90, color: "tan",        step: 7 },
+    { id: "block_026", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 4,  z: 3, rotation: 0,  color: "light-gray", step: 7 },
+    { id: "block_027", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 4,  z: 3, rotation: 0,  color: "light-gray", step: 7 },
+    { id: "block_028", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 5,  z: 2, rotation: 0,  color: "light-gray", step: 8 },
+    { id: "block_029", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 5,  z: 2, rotation: 0,  color: "light-gray", step: 8 },
+    { id: "block_030", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 5,  z: 2, rotation: 90, color: "trans-blue", step: 8 },
+    { id: "block_031", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 5,  z: 5, rotation: 90, color: "trans-blue", step: 8 },
+    { id: "block_032", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 6,  z: 2, rotation: 90, color: "light-gray", step: 9 },
+    { id: "block_033", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 6,  z: 5, rotation: 90, color: "light-gray", step: 9 },
+    { id: "block_034", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 6,  z: 3, rotation: 0,  color: "trans-blue", step: 9 },
+    { id: "block_035", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 6,  z: 3, rotation: 0,  color: "trans-blue", step: 9 },
+    { id: "block_036", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 7,  z: 2, rotation: 0,  color: "tan",        step: 10 },
+    { id: "block_037", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 7,  z: 2, rotation: 0,  color: "tan",        step: 10 },
+    { id: "block_038", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 7,  z: 2, rotation: 90, color: "tan",        step: 10 },
+    { id: "block_039", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 7,  z: 5, rotation: 90, color: "tan",        step: 10 },
+    { id: "block_040", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 8,  z: 2, rotation: 0,  color: "gold",       step: 11 },
+    { id: "block_041", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 8,  z: 2, rotation: 0,  color: "gold",       step: 11 },
+    { id: "block_042", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 8,  z: 5, rotation: 0,  color: "gold",       step: 11 },
+    { id: "block_043", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 8,  z: 5, rotation: 0,  color: "gold",       step: 11 },
+    { id: "block_044", type: "1x2x2", width: 1, depth: 2, height: 2, x: 3, y: 8,  z: 5, rotation: 90, color: "white",      step: 12, print: { pattern: "clock", face: "+z" } },
+    { id: "block_045", type: "1x2x2", width: 1, depth: 2, height: 2, x: 3, y: 8,  z: 2, rotation: 90, color: "white",      step: 12, print: { pattern: "clock", face: "-z" } },
+    { id: "block_046", type: "1x2x2", width: 1, depth: 2, height: 2, x: 2, y: 8,  z: 3, rotation: 0,  color: "white",      step: 12, print: { pattern: "clock", face: "-x" } },
+    { id: "block_047", type: "1x2x2", width: 1, depth: 2, height: 2, x: 5, y: 8,  z: 3, rotation: 0,  color: "white",      step: 12, print: { pattern: "clock", face: "+x" } },
+    { id: "block_048", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 9,  z: 2, rotation: 0,  color: "gold",       step: 13 },
+    { id: "block_049", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 9,  z: 2, rotation: 0,  color: "gold",       step: 13 },
+    { id: "block_050", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 9,  z: 5, rotation: 0,  color: "gold",       step: 13 },
+    { id: "block_051", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 9,  z: 5, rotation: 0,  color: "gold",       step: 13 },
+    { id: "block_052", type: "2x6",   width: 2, depth: 6, height: 1, x: 1, y: 10, z: 5, rotation: 90, color: "dark-gray",  step: 14 },
+    { id: "block_053", type: "2x6",   width: 2, depth: 6, height: 1, x: 1, y: 10, z: 1, rotation: 90, color: "dark-gray",  step: 14 },
+    { id: "block_054", type: "2x2",   width: 2, depth: 2, height: 1, x: 1, y: 10, z: 3, rotation: 0,  color: "dark-gray",  step: 14 },
+    { id: "block_055", type: "2x2",   width: 2, depth: 2, height: 1, x: 5, y: 10, z: 3, rotation: 0,  color: "dark-gray",  step: 14 },
+    { id: "block_056", type: "1x1",   width: 1, depth: 1, height: 1, x: 1, y: 11, z: 1, rotation: 0,  color: "gold",       step: 15 },
+    { id: "block_057", type: "1x1",   width: 1, depth: 1, height: 1, x: 6, y: 11, z: 1, rotation: 0,  color: "gold",       step: 15 },
+    { id: "block_058", type: "1x1",   width: 1, depth: 1, height: 1, x: 1, y: 11, z: 6, rotation: 0,  color: "gold",       step: 15 },
+    { id: "block_059", type: "1x1",   width: 1, depth: 1, height: 1, x: 6, y: 11, z: 6, rotation: 0,  color: "gold",       step: 15 },
+    { id: "block_060", type: "2x4",   width: 2, depth: 4, height: 1, x: 2, y: 11, z: 2, rotation: 90, color: "red",        step: 16 },
+    { id: "block_061", type: "2x4",   width: 2, depth: 4, height: 1, x: 2, y: 11, z: 4, rotation: 90, color: "red",        step: 16 },
+    { id: "block_062", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 12, z: 3, rotation: 0,  color: "red",        step: 17 },
+    { id: "block_063", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 13, z: 3, rotation: 0,  color: "gold",       step: 17 }
+  ]
+};
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+(() => {
+'use strict';
+
+/* ======================================================================
+   1. MODEL LAYER — pure data functions (no DOM / no Three.js)
+   ====================================================================== */
+const STORAGE_KEY = 'blockmade.importedModel.v1';
+
+function toInt(v, name, where) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || Math.round(n) !== n) throw new Error(`${where} の "${name}" は整数である必要があります（値: ${JSON.stringify(v)}）`);
+  return n;
+}
+
+function normalizeModel(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('JSONのトップレベルはオブジェクトである必要があります。');
+  if (!Array.isArray(raw.blocks) || raw.blocks.length === 0) throw new Error('"blocks" 配列（1個以上）が必要です。');
+  const warnings = [];
+  const colors = {};
+  for (const [k, c] of Object.entries(raw.colors || {})) {
+    if (!c || typeof c.hex !== 'string') { warnings.push(`色 "${k}" に hex がありません。`); continue; }
+    colors[k] = { name: c.name || k, hex: c.hex, opacity: c.opacity ?? 1, metalness: c.metalness ?? 0.03, roughness: c.roughness ?? 0.42 };
+  }
+  const ids = new Set();
+  const blocks = raw.blocks.map((b, i) => {
+    const where = `blocks[${i}]`;
+    if (!b || typeof b !== 'object') throw new Error(`${where} がオブジェクトではありません。`);
+    for (const k of ['id', 'width', 'depth', 'x', 'y', 'z', 'color', 'step']) {
+      if (b[k] === undefined || b[k] === null) throw new Error(`${where} に "${k}" がありません。`);
+    }
+    const id = String(b.id);
+    if (ids.has(id)) throw new Error(`ブロックID "${id}" が重複しています。`);
+    ids.add(id);
+    const width = toInt(b.width, 'width', id), depth = toInt(b.depth, 'depth', id);
+    const height = toInt(b.height ?? 1, 'height', id);
+    if (width < 1 || depth < 1 || height < 1) throw new Error(`${id}: width / depth / height は1以上にしてください。`);
+    const rotation = ((toInt(b.rotation ?? 0, 'rotation', id) % 360) + 360) % 360;
+    if (rotation % 90 !== 0) throw new Error(`${id}: rotation は 0 / 90 / 180 / 270 のいずれかです。`);
+    const swap = rotation === 90 || rotation === 270;
+    let color = String(b.color);
+    if (!colors[color]) {
+      if (/^#[0-9a-f]{3,8}$/i.test(color)) colors[color] = { name: color, hex: color, opacity: 1, metalness: 0.03, roughness: 0.42 };
+      else { warnings.push(`${id}: 色 "${color}" が colors に定義されていないため仮の色で表示します。`); colors[color] = { name: color, hex: '#ff4fd8', opacity: 1, metalness: 0, roughness: 0.5 }; }
+    }
+    const numMatch = id.match(/(\d+)\s*$/);
+    return {
+      id, type: b.type ? String(b.type) : `${width}x${depth}${height !== 1 ? 'x' + height : ''}`,
+      width, depth, height,
+      x: toInt(b.x, 'x', id), y: toInt(b.y, 'y', id), z: toInt(b.z, 'z', id),
+      rotation, color, step: toInt(b.step, 'step', id),
+      print: b.print && typeof b.print === 'object' ? { pattern: String(b.print.pattern || ''), face: String(b.print.face || '+z') } : null,
+      sx: swap ? depth : width, sz: swap ? width : depth, h: height,
+      num: numMatch ? parseInt(numMatch[1], 10) : i + 1, index: i
+    };
+  });
+  const metaByStep = new Map();
+  for (const s of (Array.isArray(raw.steps) ? raw.steps : [])) if (s && s.step !== undefined) metaByStep.set(Number(s.step), s);
+  const stepNums = [...new Set(blocks.map(b => b.step))].sort((a, b) => a - b);
+  const steps = stepNums.map(n => {
+    const m = metaByStep.get(n) || {};
+    return { step: n, title: m.title || `Step ${n}`, description: m.description || '' };
+  });
+  for (const n of metaByStep.keys()) if (!stepNums.includes(n)) warnings.push(`Step ${n} には追加ブロックがありません。`);
+  const layers = Math.max(...blocks.map(b => b.y + b.h));
+  const minX = Math.min(...blocks.map(b => b.x)), maxX = Math.max(...blocks.map(b => b.x + b.sx));
+  const minZ = Math.min(...blocks.map(b => b.z)), maxZ = Math.max(...blocks.map(b => b.z + b.sz));
+  return {
+    format: 'blockmade.model', version: 1,
+    name: String(raw.name || 'Untitled'), nameEn: raw.nameEn ? String(raw.nameEn) : '',
+    description: String(raw.description || ''),
+    colors, steps, blocks, warnings, layers,
+    bounds: { minX, maxX, minZ, maxZ },
+    byId: new Map(blocks.map(b => [b.id, b]))
+  };
+}
+
+const overlapXZ = (a, b) => a.x < b.x + b.sx && b.x < a.x + a.sx && a.z < b.z + b.sz && b.z < a.z + a.sz;
+const overlapY = (a, b) => a.y < b.y + b.h && b.y < a.y + a.h;
+
+/** Structure checks: connection, support, collision, build order. */
+function validateModel(m) {
+  const B = m.blocks, n = B.length;
+  const above = new Map(B.map(b => [b.id, []])), below = new Map(B.map(b => [b.id, []]));
+  const collisions = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const a = B[i], b = B[j];
+    if (!overlapXZ(a, b)) continue;
+    if (overlapY(a, b)) { collisions.push([a.id, b.id]); continue; }
+    if (a.y === b.y + b.h) { below.get(a.id).push(b.id); above.get(b.id).push(a.id); }
+    else if (b.y === a.y + a.h) { below.get(b.id).push(a.id); above.get(a.id).push(b.id); }
+  }
+  const neighbours = id => [...above.get(id), ...below.get(id)];
+
+  // Connected: one component in the stud-connection graph
+  const seen = new Set(), groups = [];
+  for (const b of B) {
+    if (seen.has(b.id)) continue;
+    const comp = [], q = [b.id]; seen.add(b.id);
+    while (q.length) { const id = q.pop(); comp.push(id); for (const nb of neighbours(id)) if (!seen.has(nb)) { seen.add(nb); q.push(nb); } }
+    groups.push(comp);
+  }
+  groups.sort((a, b) => b.length - a.length);
+
+  // Supported: every block reaches the ground (y = 0) through connections
+  const grounded = new Set(), q = [];
+  for (const b of B) if (b.y === 0) { grounded.add(b.id); q.push(b.id); }
+  while (q.length) { const id = q.pop(); for (const nb of neighbours(id)) if (!grounded.has(nb)) { grounded.add(nb); q.push(nb); } }
+  const floating = B.filter(b => !grounded.has(b.id)).map(b => b.id);
+  const belowGround = B.filter(b => b.y < 0).map(b => b.id);
+
+  // Build order: each block must attach to the ground or an already-placed block,
+  // and must not be wedged between blocks that are already placed above and below.
+  const placed = new Set(), orderIssues = [];
+  for (const s of m.steps) {
+    let pending = B.filter(b => b.step === s.step);
+    let progress = true;
+    while (pending.length && progress) {
+      progress = false;
+      const next = [];
+      for (const b of pending) {
+        const pb = below.get(b.id).filter(id => placed.has(id));
+        const pa = above.get(b.id).filter(id => placed.has(id));
+        if (b.y === 0 || pb.length || pa.length) {
+          if ((b.y === 0 || pb.length) && pa.length) orderIssues.push({ step: s.step, id: b.id, msg: `上下がすでに組まれていて差し込めません（上: ${pa.join(', ')}）` });
+          for (const c of B) if (c.step < s.step && placed.has(c.id) && overlapXZ(b, c) && overlapY(b, c)) orderIssues.push({ step: s.step, id: b.id, msg: `配置済みの ${c.id} と重なっています` });
+          placed.add(b.id); progress = true;
+        } else next.push(b);
+      }
+      pending = next;
+    }
+    for (const b of pending) { orderIssues.push({ step: s.step, id: b.id, msg: 'この時点で接続先がなく、宙に浮きます' }); placed.add(b.id); }
+  }
+
+  return {
+    connected: { ok: groups.length === 1, groups },
+    supported: { ok: floating.length === 0 && belowGround.length === 0, floating, belowGround },
+    collisions: { ok: collisions.length === 0, pairs: collisions },
+    order: { ok: orderIssues.length === 0, issues: orderIssues },
+    above, below,
+    get allOk() { return this.connected.ok && this.supported.ok && this.collisions.ok && this.order.ok; },
+    get failCount() { return [this.connected, this.supported, this.collisions, this.order].filter(c => !c.ok).length; }
+  };
+}
+
+function cleanBlock(b) {
+  const o = { id: b.id, type: b.type, width: b.width, depth: b.depth, height: b.height, x: b.x, y: b.y, z: b.z, rotation: b.rotation, color: b.color, step: b.step };
+  if (b.print) o.print = b.print;
+  return o;
+}
+function modelToJSON(m) {
+  const colors = {};
+  for (const [k, c] of Object.entries(m.colors)) {
+    const o = { name: c.name, hex: c.hex };
+    if (c.opacity !== 1) o.opacity = c.opacity;
+    if (c.metalness !== 0.03) o.metalness = c.metalness;
+    if (c.roughness !== 0.42) o.roughness = c.roughness;
+    colors[k] = o;
+  }
+  const out = { format: 'blockmade.model', version: 1, name: m.name, nameEn: m.nameEn, description: m.description, colors, steps: m.steps, blocks: '__BLOCKS__' };
+  const lines = m.blocks.map(b => '    ' + JSON.stringify(cleanBlock(b))).join(',\n');
+  return JSON.stringify(out, null, 2).replace('"__BLOCKS__"', '[\n' + lines + '\n  ]');
+}
+
+/* ======================================================================
+   2. HELPERS
+   ====================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const typeLabel = t => String(t).replace(/x/gi, '×');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const colorOf = key => state.model.colors[key] || { name: key, hex: '#ff4fd8', opacity: 1 };
+const colorName = key => colorOf(key).name;
+const layerOf = b => b.h > 1 ? `${b.y + 1}–${b.y + b.h}` : `${b.y + 1}`;
+
+function glyph(w, d, hex) {
+  // top view of the brick: long side horizontal
+  const cols = Math.max(w, d), rows = Math.min(w, d), s = 7;
+  const W = cols * s + 2, H = rows * s + 2;
+  let studs = '';
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="2.2" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
+  return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>${studs}</svg>`;
+}
+const swatch = key => `<span class="sw" style="background:${esc(colorOf(key).hex)}"></span>`;
+
+/* ======================================================================
+   3. APP STATE
+   ====================================================================== */
+const state = {
+  model: null, check: null,
+  mode: 'complete',           // 'complete' | 'build'
+  stepIdx: 0, exploded: false,
+  layer: 0, layerOnly: false, // 0 = all layers
+  selectedId: null, hoverId: null,
+  partsView: 'type-color', partsKey: null,
+  tab: 'parts'
+};
+const curStep = () => state.model.steps[state.stepIdx];
+
+/* ======================================================================
+   4. 3D SCENE (Three.js)
+   ====================================================================== */
+const Scene = (() => {
+  const H = 1.2, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;
+  const ACCENT = new THREE.Color('#f2b544'), SELECT = new THREE.Color('#5fd6e8'), WHITE = new THREE.Color('#ffffff'), BLACK = new THREE.Color('#000000');
+  const viewEl = $('#viewport'), canvas = $('#gl');
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 600);
+  camera.position.set(20, 18, 26);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+  controls.screenSpacePanning = true;
+  controls.minDistance = 3;
+  controls.maxDistance = 220;
+  controls.maxPolarAngle = Math.PI / 2 + 0.12;
+
+  scene.add(new THREE.HemisphereLight(0xe4ecff, 0x20242b, 0.72));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+  sun.position.set(16, 30, 20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 100 });
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xa9c1ff, 0.28);
+  fill.position.set(-18, 10, -14);
+  scene.add(fill);
+
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.32 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  const grid = new THREE.GridHelper(48, 48, 0x46505e, 0x262d37);
+  grid.position.y = 0.002;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.85;
+  scene.add(grid);
+  // "front" marker on the ground (+Z side)
+  const frontMark = new THREE.Mesh(new THREE.CircleGeometry(0.55, 3), new THREE.MeshBasicMaterial({ color: 0xf2b544, transparent: true, opacity: 0.55 }));
+  frontMark.rotation.x = -Math.PI / 2;
+  frontMark.rotation.z = -Math.PI / 2;
+  scene.add(frontMark);
+
+  const root = new THREE.Group();
+  scene.add(root);
+
+  const geoCache = new Map();
+  const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 20);
+  function boxGeo(sx, h, sz) {
+    const k = `${sx}|${h}|${sz}`;
+    if (!geoCache.has(k)) {
+      const g = new THREE.BoxGeometry(sx - GAP, h * H - GAP, sz - GAP);
+      geoCache.set(k, { box: g, edges: new THREE.EdgesGeometry(g) });
+    }
+    return geoCache.get(k);
+  }
+
+  // --- printed decorations (clock face) ---
+  const printTextures = [];
+  function drawClock(ctx, w, h, bg) {
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.41;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbfaf4'; ctx.fill();
+    ctx.lineWidth = r * 0.12; ctx.strokeStyle = '#c99532'; ctx.stroke();
+    ctx.strokeStyle = '#25282e'; ctx.lineCap = 'round';
+    for (let i = 0; i < 60; i++) {
+      const a = i / 60 * Math.PI * 2, big = i % 5 === 0;
+      const r1 = r * 0.86, r0 = r1 - (big ? r * 0.17 : r * 0.06);
+      ctx.lineWidth = big ? r * 0.06 : r * 0.022;
+      ctx.beginPath(); ctx.moveTo(cx + Math.sin(a) * r0, cy - Math.cos(a) * r0); ctx.lineTo(cx + Math.sin(a) * r1, cy - Math.cos(a) * r1); ctx.stroke();
+    }
+    const now = new Date(), mi = now.getMinutes(), hr = (now.getHours() % 12) + mi / 60;
+    const hand = (a, len, wd) => { ctx.lineWidth = wd; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); ctx.stroke(); };
+    ctx.strokeStyle = '#1a1d22';
+    hand(hr / 12 * Math.PI * 2, r * 0.48, r * 0.09);
+    hand(mi / 60 * Math.PI * 2, r * 0.74, r * 0.055);
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.08, 0, Math.PI * 2); ctx.fillStyle = '#c99532'; ctx.fill();
+  }
+  function makePrintTexture(pattern, fw, fh, bg) {
+    if (pattern !== 'clock') return null;
+    const w = 256, h = Math.round(256 * fh / fw);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    drawClock(ctx, w, h, bg);
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const entry = { tex, redraw: () => { drawClock(ctx, w, h, bg); tex.needsUpdate = true; } };
+    printTextures.push(entry);
+    return tex;
+  }
+  setInterval(() => printTextures.forEach(p => p.redraw()), 30000);
+  const FACE_INDEX = { '+x': 0, '-x': 1, '+y': 2, '-y': 3, '+z': 4, '-z': 5 };
+
+  let recs = [], recById = new Map(), pickables = [];
+  let center = { x: 0, z: 0 };
+  let explodeT = 0;
+  const cageMat = new THREE.LineBasicMaterial({ color: SELECT, depthTest: false, transparent: true, opacity: 0.95 });
+  let cage = null;
+
+  function disposeAll() {
+    for (const r of recs) { r.mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); r.line.material.dispose(); }
+    root.clear(); recs = []; recById.clear(); pickables = []; printTextures.length = 0;
+    if (cage) { cage.geometry.dispose(); cage = null; }
+  }
+
+  function build(m) {
+    disposeAll();
+    center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
+    frontMark.position.set(0, 0.004, (m.bounds.maxZ - center.z) + 1.6);
+    for (const b of m.blocks) {
+      const c = m.colors[b.color];
+      const base = { color: new THREE.Color(c.hex), roughness: c.roughness, metalness: c.metalness, transparent: c.opacity < 1, opacity: c.opacity, depthWrite: c.opacity >= 1 };
+      const mat = new THREE.MeshStandardMaterial(base);
+      const g = boxGeo(b.sx, b.h, b.sz);
+      let meshMat = mat;
+      const mats = [mat];
+      if (b.print && FACE_INDEX[b.print.face] !== undefined) {
+        const f = b.print.face, fw = f.includes('x') ? b.sz : b.sx, fh = b.h * H;
+        const tex = makePrintTexture(b.print.pattern, fw, fh, c.hex);
+        if (tex) {
+          const pm = new THREE.MeshStandardMaterial({ ...base, color: 0xffffff, map: tex });
+          meshMat = [mat, mat, mat, mat, mat, mat];
+          meshMat[FACE_INDEX[f]] = pm;
+          mats.push(pm);
+        }
+      }
+      const group = new THREE.Group();
+      const mesh = new THREE.Mesh(g.box, meshMat);
+      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.userData.blockId = b.id;
+      group.add(mesh);
+      const studs = [];
+      for (let i = 0; i < b.sx; i++) for (let k = 0; k < b.sz; k++) {
+        const s = new THREE.Mesh(studGeo, mat);
+        s.position.set(i - b.sx / 2 + 0.5, b.h * H / 2 + STUD_H / 2 - GAP / 2, k - b.sz / 2 + 0.5);
+        s.castShadow = true;
+        s.userData.blockId = b.id;
+        group.add(s); studs.push(s);
+      }
+      const line = new THREE.LineSegments(g.edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
+      line.raycast = () => {};
+      group.add(line);
+      const px = b.x + b.sx / 2 - center.x, pz = b.z + b.sz / 2 - center.z, py = b.y * H + b.h * H / 2;
+      group.position.set(px, py, pz);
+      root.add(group);
+      const rec = { b, group, mesh, studs, line, mat, mats, baseY: py, baseOpacity: c.opacity, st: {}, dropStart: null };
+      recs.push(rec); recById.set(b.id, rec);
+    }
+    explodeT = state.exploded ? 1 : 0;
+  }
+
+  /** Recompute visibility / look of every block from app state. */
+  function apply(opts = {}) {
+    const m = state.model, step = curStep().step, L = state.layer;
+    pickables = [];
+    const now = performance.now();
+    let k = 0;
+    for (const r of recs) {
+      const b = r.b;
+      let vis = state.mode === 'complete' || b.step <= step, ghost = false;
+      if (L > 0) {
+        const li = L - 1, top = b.y + b.h - 1;
+        if (b.y > li) vis = false;
+        else if (top < li) { if (state.layerOnly) vis = false; else ghost = true; }
+      }
+      const isNew = vis && !ghost && state.mode === 'build' && b.step === step;
+      const sel = b.id === state.selectedId;
+      const part = !!state.partsKey && partKeyOf(b, state.partsView) === state.partsKey;
+      const wasVisible = r.group.visible && r.st.vis;
+      if (isNew && opts.animateNew && !wasVisible && !reduced) r.dropStart = now + (k++) * 70;
+      if (!isNew) r.dropStart = null;
+      r.st = { vis, ghost, isNew, sel, part };
+      r.group.visible = vis;
+      const op = ghost ? 0.13 : r.baseOpacity;
+      for (const mt of r.mats) {
+        const tr = op < 1;
+        if (mt.transparent !== tr) { mt.transparent = tr; mt.needsUpdate = true; }
+        mt.opacity = op;
+        mt.depthWrite = !tr;
+      }
+      r.mesh.castShadow = !ghost;
+      r.studs.forEach(s => (s.castShadow = !ghost));
+      const lm = r.line.material;
+      if (sel) { lm.color.copy(SELECT); lm.opacity = 1; }
+      else if (isNew) { lm.color.copy(ACCENT); lm.opacity = 0.95; }
+      else if (part) { lm.color.copy(SELECT); lm.opacity = 0.8; }
+      else if (ghost) { lm.color.set(0x9aa6b5); lm.opacity = 0.22; }
+      else { lm.color.copy(BLACK); lm.opacity = r.baseOpacity < 1 ? 0.18 : 0.3; }
+      if (vis && !ghost) pickables.push(r.mesh, ...r.studs);
+    }
+    // selection cage (visible through other blocks)
+    if (cage) { cage.parent && cage.parent.remove(cage); cage.geometry.dispose(); cage = null; }
+    const sr = state.selectedId && recById.get(state.selectedId);
+    if (sr && sr.st.vis) {
+      const b = sr.b;
+      const eg = new THREE.EdgesGeometry(new THREE.BoxGeometry(b.sx + 0.1, b.h * H + 0.1, b.sz + 0.1));
+      cage = new THREE.LineSegments(eg, cageMat);
+      cage.renderOrder = 999;
+      cage.raycast = () => {};
+      sr.group.add(cage);
+    }
+  }
+
+  // --- camera ---
+  let tween = null;
+  const VIEWS = {
+    front: [0, 0.08, 1], back: [0, 0.08, -1], left: [-1, 0.08, 0], right: [1, 0.08, 0],
+    top: [0, 1, 0.0008], iso: [0.95, 0.78, 1.3]
+  };
+  function visibleBounds(expl) {
+    const box = new THREE.Box3();
+    let any = false;
+    for (const r of recs) {
+      if (!r.st.vis) continue;
+      const b = r.b;
+      const y = r.baseY + expl * b.y * EXPLODE;
+      const hx = b.sx / 2, hz = b.sz / 2, hy = b.h * H / 2;
+      box.expandByPoint(new THREE.Vector3(r.group.position.x - hx, y - hy, r.group.position.z - hz));
+      box.expandByPoint(new THREE.Vector3(r.group.position.x + hx, y + hy + STUD_H, r.group.position.z + hz));
+      any = true;
+    }
+    if (!any) box.set(new THREE.Vector3(-4, 0, -4), new THREE.Vector3(4, 2, 4));
+    return box;
+  }
+  function flyTo(dirArr, opt = {}) {
+    const dir = dirArr ? new THREE.Vector3(...dirArr).normalize() : camera.position.clone().sub(controls.target).normalize();
+    const box = opt.box || visibleBounds(state.exploded ? 1 : 0);
+    const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    const radius = Math.max(size.length() / 2, 1.5);
+    const vfov = camera.fov * Math.PI / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+    const dist = radius / Math.sin(Math.min(vfov, hfov) / 2) * (opt.pad || 1.16);
+    const toPos = c.clone().add(dir.multiplyScalar(dist));
+    if (opt.instant || reduced) { camera.position.copy(toPos); controls.target.copy(c); controls.update(); tween = null; return; }
+    tween = { fp: camera.position.clone(), tp: toPos, ft: controls.target.clone(), tt: c, t0: performance.now(), dur: 650 };
+  }
+  function focusBlock(id) {
+    const r = recById.get(id); if (!r) return;
+    const box = new THREE.Box3().setFromObject(r.mesh);
+    box.expandByScalar(2.2);
+    flyTo(null, { box, pad: 1.1 });
+  }
+
+  // --- picking / hover ---
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pick(ev) {
+    const rect = canvas.getBoundingClientRect();
+    ndc.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    return hit ? hit.object.userData.blockId : null;
+  }
+
+  // --- resize ---
+  function resize() {
+    const w = viewEl.clientWidth, h = viewEl.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(viewEl);
+  resize();
+
+  // --- frame loop ---
+  const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutBack = t => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+  function tick(now) {
+    requestAnimationFrame(tick);
+    const target = state.exploded ? 1 : 0;
+    explodeT += (target - explodeT) * (reduced ? 1 : 0.14);
+    if (Math.abs(target - explodeT) < 0.0005) explodeT = target;
+    if (tween) {
+      const t = Math.min(1, (now - tween.t0) / tween.dur), e = ease(t);
+      camera.position.lerpVectors(tween.fp, tween.tp, e);
+      controls.target.lerpVectors(tween.ft, tween.tt, e);
+      if (t >= 1) tween = null;
+    }
+    const pulse = 0.5 + 0.5 * Math.sin(now / 240);
+    for (const r of recs) {
+      if (!r.group.visible) continue;
+      let drop = 0;
+      if (r.dropStart !== null) {
+        const t = (now - r.dropStart) / 480;
+        if (t >= 1) r.dropStart = null; else drop = t < 0 ? DROP : (1 - easeOutBack(t)) * DROP;
+      }
+      r.group.position.y = r.baseY + explodeT * r.b.y * EXPLODE + drop;
+      const s = r.st;
+      let col = BLACK, inten = 0;
+      if (s.sel) { col = SELECT; inten = 0.5; }
+      else if (s.isNew) { col = ACCENT; inten = 0.16 + 0.2 * pulse; }
+      else if (s.part) { col = SELECT; inten = 0.12 + 0.18 * pulse; }
+      else if (state.hoverId === r.b.id) { col = WHITE; inten = 0.12; }
+      for (const mt of r.mats) { mt.emissive.copy(col); mt.emissiveIntensity = inten; }
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(tick);
+
+  return { build, apply, flyTo, focusBlock, pick, VIEWS, canvas, controls, get explodeT() { return explodeT; } };
+})();
+
+/* ======================================================================
+   5. UI
+   ====================================================================== */
+function partKeyOf(b, view) {
+  switch (view) {
+    case 'type': return b.type;
+    case 'color': return b.color;
+    case 'step': return `${b.step}|${b.type}|${b.color}`;
+    default: return `${b.type}|${b.color}`;
+  }
+}
+const sizeSort = (a, b) => (b.width * b.depth * b.height) - (a.width * a.depth * a.height) || b.depth - a.depth;
+function groupBlocks(blocks, keyFn) {
+  const map = new Map();
+  for (const b of blocks) { const k = keyFn(b); if (!map.has(k)) map.set(k, []); map.get(k).push(b); }
+  return map;
+}
+
+function renderAll() {
+  renderHeader(); renderSteps(); renderParts(); renderChecks(); renderSelected(); renderLayerBar(); renderChips(); renderTabs();
+}
+
+function renderHeader() {
+  const m = state.model;
+  $('#model-name').textContent = m.nameEn ? `${m.name} · ${m.nameEn}` : m.name;
+  $('#btn-complete').setAttribute('aria-pressed', state.mode === 'complete');
+  $('#btn-build').setAttribute('aria-pressed', state.mode === 'build');
+  $('#btn-explode').setAttribute('aria-pressed', state.exploded);
+  const c = state.check, badge = $('#check-badge');
+  badge.className = 'check-badge ' + (c.allOk ? 'ok' : 'bad');
+  badge.textContent = c.allOk ? '✓ 構造チェック OK' : `⚠ 構造の問題 ${c.failCount}件`;
+  $('#tab-check-dot').style.background = c.allOk ? 'var(--ok)' : 'var(--bad)';
+}
+
+function renderChips() {
+  const m = state.model, el = $('#mode-chips');
+  const placed = state.mode === 'complete' ? m.blocks.length : m.blocks.filter(b => b.step <= curStep().step).length;
+  let html = state.mode === 'complete'
+    ? `<span class="chip"><b>完成形</b> · ${m.blocks.length} blocks</span>`
+    : `<span class="chip accent"><b style="color:inherit">Step ${state.stepIdx + 1}</b> / ${m.steps.length}</span><span class="chip">${placed} / ${m.blocks.length} blocks</span>`;
+  if (state.exploded) html += `<span class="chip accent">分解表示</span>`;
+  if (state.layer) html += `<span class="chip">Layer <b>${state.layer}</b>${state.layerOnly ? ' のみ' : ' まで'}</span>`;
+  el.innerHTML = html;
+}
+
+function renderSteps() {
+  const m = state.model, i = state.stepIdx, s = curStep(), el = $('#steps-body');
+  const prev = $('#btn-prev'), next = $('#btn-next');
+  $('#step-chips').querySelectorAll('button').forEach((btn, idx) => {
+    btn.className = state.mode === 'build' ? (idx === i ? 'cur' : idx < i ? 'done' : '') : '';
+  });
+  if (state.mode === 'complete') {
+    $('#steps-eyebrow').textContent = 'Completed Model';
+    const types = new Set(m.blocks.map(b => b.type)).size;
+    const w = m.bounds.maxX - m.bounds.minX, d = m.bounds.maxZ - m.bounds.minZ;
+    el.innerHTML = `<div class="overview">
+      <h2>${esc(m.name)}</h2>
+      <p>${esc(m.description)}</p>
+      <dl class="stats">
+        <div><dt>ブロック</dt><dd>${m.blocks.length}</dd></div>
+        <div><dt>Step</dt><dd>${m.steps.length}</dd></div>
+        <div><dt>高さ(段)</dt><dd>${m.layers}</dd></div>
+        <div><dt>底面</dt><dd>${w}×${d}</dd></div>
+      </dl>
+      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色。「次へ」で Step 1 から組み立て手順を再生します。</p>
+    </div>`;
+    prev.disabled = true;
+    next.disabled = false;
+    next.textContent = state.stepIdx > 0 ? `Step ${state.stepIdx + 1} から再開 →` : 'Step 1 から組み立てる →';
+    return;
+  }
+  $('#steps-eyebrow').textContent = 'Build Mode';
+  const added = m.blocks.filter(b => b.step === s.step);
+  const groups = [...groupBlocks(added, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]));
+  const placed = m.blocks.filter(b => b.step <= s.step).length;
+  el.innerHTML = `
+    <div class="step-num">Step ${i + 1}<small>/ ${m.steps.length}</small></div>
+    <div class="step-title">${esc(s.title)}</div>
+    <div class="sub">追加するブロック</div>
+    <ul class="adds">${groups.map(g => { const b = g[0], c = colorOf(b.color); return `<li>${glyph(b.width, b.depth, c.hex)}<span class="nm">${typeLabel(b.type)} ${esc(c.name)}</span><span class="ct">×${g.length}</span></li>`; }).join('')}</ul>
+    <div class="sub">説明</div>
+    <p class="desc">${esc(s.description || '—')}</p>
+    <div class="progress" aria-hidden="true"><span style="width:${(placed / m.blocks.length * 100).toFixed(1)}%"></span></div>
+    <div class="progress-label"><span>配置済み</span><span class="mono">${placed} / ${m.blocks.length}</span></div>`;
+  prev.disabled = i === 0;
+  next.disabled = false;
+  next.textContent = i === m.steps.length - 1 ? '完成形を見る ✓' : '次へ →';
+}
+
+function buildStepChips() {
+  const el = $('#step-chips');
+  el.innerHTML = state.model.steps.map((s, idx) => `<button data-idx="${idx}" title="Step ${idx + 1}: ${esc(s.title)}">${idx + 1}</button>`).join('');
+}
+
+function renderParts() {
+  const m = state.model, el = $('#panel-parts'), v = state.partsView;
+  const views = [['type-color', '種類×色'], ['type', '種類別'], ['color', '色別'], ['step', 'Step別']];
+  let html = `<div class="subseg" role="group" aria-label="並べ替え">${views.map(([k, l]) => `<button data-pview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`;
+  const types = new Set(m.blocks.map(b => b.type)).size, cols = new Set(m.blocks.map(b => b.color)).size;
+  html += `<div class="total"><span>合計 <b>${m.blocks.length}</b> ブロック</span><span>${types} 種類 · ${cols} 色</span></div>`;
+  const row = (key, glyphHtml, label, meta, count) =>
+    `<li><button data-pkey="${esc(key)}" aria-pressed="${state.partsKey === key}">${glyphHtml}<span><span>${label}</span>${meta ? `<br><span class="meta">${meta}</span>` : ''}</span><span class="cnt">×${count}</span></button></li>`;
+  if (v === 'step') {
+    for (const [si, s] of m.steps.entries()) {
+      const bs = m.blocks.filter(b => b.step === s.step);
+      html += `<div class="pgroup"><span>Step ${si + 1} · ${esc(s.title)}</span><span class="mono">${bs.length}</span></div><ul class="plist">`;
+      for (const g of [...groupBlocks(bs, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
+        const b = g[0];
+        html += row(partKeyOf(b, 'step'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+      }
+      html += '</ul>';
+    }
+  } else if (v === 'type') {
+    html += '<ul class="plist">';
+    for (const g of [...groupBlocks(m.blocks, b => b.type).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
+      const b = g[0], colsIn = [...new Set(g.map(x => x.color))];
+      html += row(b.type, glyph(b.width, b.depth, '#6d7784'), typeLabel(b.type), `<span class="swrow">${colsIn.map(swatch).join('')}</span> ${colsIn.length} 色`, g.length);
+    }
+    html += '</ul>';
+  } else if (v === 'color') {
+    html += '<ul class="plist">';
+    for (const g of [...groupBlocks(m.blocks, b => b.color).values()].sort((a, c) => c.length - a.length)) {
+      const b = g[0], c = colorOf(b.color), typesIn = [...new Set(g.map(x => x.type))];
+      html += row(b.color, `<svg width="44" height="16" aria-hidden="true"><rect x=".5" y=".5" width="43" height="15" rx="3" fill="${esc(c.hex)}" stroke="rgba(0,0,0,.45)"/></svg>`, esc(c.name), typesIn.map(typeLabel).join(' · '), g.length);
+    }
+    html += '</ul>';
+  } else {
+    html += '<ul class="plist">';
+    for (const g of [...groupBlocks(m.blocks, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]) || c.length - a.length)) {
+      const b = g[0];
+      html += row(partKeyOf(b, 'type-color'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+    }
+    html += '</ul>';
+  }
+  html += `<p class="check-note">行をクリックすると、その部品を3Dビューで強調表示します。</p>`;
+  el.innerHTML = html;
+}
+
+function blockLink(id) { return `<button data-block="${esc(id)}">${esc(id)}</button>`; }
+function renderChecks() {
+  const c = state.check, m = state.model, el = $('#panel-check');
+  const item = (ok, name, okText, badText, issuesHtml) => `<li class="${ok ? 'ok' : 'bad'}">
+      <div class="row"><span class="ic">${ok ? '✓' : '✗'}</span><span class="name">${name}</span></div>
+      <div class="det">${ok ? okText : badText}</div>${!ok && issuesHtml ? `<ul class="issues">${issuesHtml}</ul>` : ''}</li>`;
+  const cap = (arr, f) => arr.slice(0, 30).map(f).join('') + (arr.length > 30 ? `<li style="color:var(--muted);font-size:12px">…ほか ${arr.length - 30} 件</li>` : '');
+  let html = '<ul class="checks">';
+  html += item(c.connected.ok, 'Connected', `${m.blocks.length} 個すべてが1つの構造体につながっています。`,
+    `構造体が ${c.connected.groups.length} 個に分かれています。孤立したグループ:`,
+    cap(c.connected.groups.slice(1), g => `<li>${g.length}個: ${g.slice(0, 6).map(blockLink).join(' ')}${g.length > 6 ? ' …' : ''}</li>`));
+  html += item(c.supported.ok, 'Supported', '空中に浮いたブロックはありません（すべて地面までつながっています）。',
+    `地面まで支えがつながっていないブロックが ${c.supported.floating.length + c.supported.belowGround.length} 個あります:`,
+    cap([...c.supported.floating.map(id => [id, '支えなし']), ...c.supported.belowGround.map(id => [id, '地面より下 (y<0)'])], ([id, t]) => `<li>${blockLink(id)} — ${t}</li>`));
+  html += item(c.collisions.ok, 'No collisions', '同じ空間を占有するブロックはありません。',
+    `${c.collisions.pairs.length} 組のブロックが重なっています:`,
+    cap(c.collisions.pairs, ([a, b]) => `<li>${blockLink(a)} × ${blockLink(b)}</li>`));
+  html += item(c.order.ok, 'Build order valid', 'すべての Step で、追加ブロックが配置済みの部品か地面に取り付けられます。',
+    `${c.order.issues.length} 件の組み立て順の問題:`,
+    cap(c.order.issues, is => `<li>Step ${m.steps.findIndex(s => s.step === is.step) + 1}: ${blockLink(is.id)} — ${esc(is.msg)}</li>`));
+  html += '</ul>';
+  if (m.warnings.length) html += `<p class="check-note" style="color:var(--accent)">データの注意: ${m.warnings.map(esc).join(' / ')}</p>`;
+  html += `<p class="check-note">判定ルール: 上下に接してスタッドが1つ以上重なる2ブロックを「接続」とみなします。横に並ぶだけでは接続になりません。組み立て順は、各 Step の時点で地面か配置済みブロックに接続でき、かつ上下を既存ブロックに挟まれていないことを確認します。</p>`;
+  el.innerHTML = html;
+}
+
+function renderSelected() {
+  const el = $('#panel-selected'), card = $('#selcard');
+  const b = state.selectedId && state.model.byId.get(state.selectedId);
+  if (!b) {
+    el.innerHTML = `<p class="empty">3Dビュー上のブロックをクリックすると、ここに詳細が表示されます。構造チェックのブロックIDからも選択できます。</p>`;
+    card.hidden = true;
+    return;
+  }
+  const c = colorOf(b.color), si = state.model.steps.findIndex(s => s.step === b.step);
+  const ab = state.check.above.get(b.id), be = state.check.below.get(b.id);
+  el.innerHTML = `
+    <div class="row"><span class="big">Block #${b.num}</span><span class="mono" style="color:var(--faint);font-size:12px">${esc(b.id)}</span></div>
+    <div class="row" style="margin-top:8px">${glyph(b.width, b.depth, c.hex)}<span>${typeLabel(b.type)} · ${esc(c.name)}</span></div>
+    <dl>
+      <dt>Position</dt><dd>X${b.x} Y${b.y} Z${b.z}</dd>
+      <dt>サイズ</dt><dd>${b.width}×${b.depth}×${b.height}（W×D×H）</dd>
+      <dt>向き</dt><dd>${b.rotation}°（占有 X${b.sx} × Z${b.sz}）</dd>
+      <dt>色</dt><dd>${swatch(b.color)} ${esc(c.name)} <span style="color:var(--faint)">${esc(c.hex)}</span></dd>
+      <dt>Step</dt><dd>Step ${si + 1}${si + 1 !== b.step ? `（step値 ${b.step}）` : ''} · ${esc(state.model.steps[si].title)}</dd>
+      <dt>Layer</dt><dd>${layerOf(b)}</dd>
+      <dt>接続</dt><dd>上 ${ab.length} / 下 ${be.length}${b.y === 0 ? ' + 地面' : ''}</dd>
+      ${b.print ? `<dt>プリント</dt><dd>${esc(b.print.pattern)} (${esc(b.print.face)})</dd>` : ''}
+    </dl>
+    <div class="btnrow">
+      <button class="btn" data-act="goto-step">この Step を表示</button>
+      <button class="btn" data-act="focus">ズームして見る</button>
+      <button class="btn" data-act="deselect">選択解除</button>
+    </div>`;
+  card.hidden = false;
+  card.innerHTML = `<button class="x" data-act="deselect" aria-label="選択解除">✕</button><div class="t">Block #${b.num}</div><div>${typeLabel(b.type)} ${esc(c.name)}</div><div class="mono" style="color:var(--muted)">X${b.x} Y${b.y} Z${b.z} · Step ${si + 1}</div>`;
+}
+
+function renderLayerBar() {
+  const m = state.model, r = $('#layer-range');
+  r.max = m.layers;
+  r.value = state.layer;
+  const count = state.layer ? m.blocks.filter(b => b.y <= state.layer - 1 && b.y + b.h - 1 >= state.layer - 1).length : m.blocks.length;
+  $('#layer-val').textContent = state.layer ? `Layer ${state.layer} / ${m.layers} (${count})` : `全レイヤー (${m.layers})`;
+  $('#layer-only').checked = state.layerOnly;
+  $('#layer-only').disabled = !state.layer;
+}
+
+function renderTabs() {
+  for (const t of ['parts', 'check', 'selected']) {
+    $(`#tab-${t}`).setAttribute('aria-selected', state.tab === t);
+    $(`#panel-${t}`).hidden = state.tab !== t;
+  }
+}
+
+/* ---------- actions ---------- */
+function refresh(opts) { Scene.apply(opts); renderAll(); }
+
+function setMode(mode) {
+  if (state.mode === mode) return;
+  state.mode = mode;
+  refresh({ animateNew: mode === 'build' });
+}
+function goStep(idx, animate = true) {
+  const n = state.model.steps.length;
+  idx = Math.max(0, Math.min(n - 1, idx));
+  const forward = idx > state.stepIdx || state.mode !== 'build';
+  state.stepIdx = idx;
+  state.mode = 'build';
+  refresh({ animateNew: animate && forward });
+}
+function next() {
+  if (state.mode === 'complete') return goStep(state.stepIdx);
+  if (state.stepIdx >= state.model.steps.length - 1) { setMode('complete'); return; }
+  goStep(state.stepIdx + 1);
+}
+function prev() { if (state.mode === 'build') goStep(state.stepIdx - 1); }
+function setExploded(on) {
+  state.exploded = on;
+  refresh();
+  Scene.flyTo(null);
+}
+function setLayer(L) {
+  state.layer = Math.max(0, Math.min(state.model.layers, L));
+  if (!state.layer) state.layerOnly = false;
+  refresh();
+}
+function select(id, { reveal = false, fromView = false } = {}) {
+  state.selectedId = id;
+  if (id && reveal) {
+    const b = state.model.byId.get(id);
+    if (state.mode === 'build' && b.step > curStep().step) state.stepIdx = state.model.steps.findIndex(s => s.step === b.step);
+    if (state.layer && (b.y > state.layer - 1 || (state.layerOnly && b.y + b.h - 1 < state.layer - 1))) { state.layer = 0; state.layerOnly = false; }
+  }
+  if (id && (fromView || reveal)) state.tab = 'selected';
+  refresh();
+}
+
+function loadModel(raw, { persist = false, fit = true } = {}) {
+  const m = normalizeModel(raw);
+  state.model = m;
+  state.check = validateModel(m);
+  state.mode = 'complete'; state.stepIdx = 0; state.layer = 0; state.layerOnly = false;
+  state.selectedId = null; state.hoverId = null; state.partsKey = null;
+  Scene.build(m);
+  buildStepChips();
+  refresh();
+  if (fit) Scene.flyTo(Scene.VIEWS.iso, { instant: true });
+  if (persist) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(raw)); } catch (e) { /* storage unavailable */ } }
+  return m;
+}
+
+/* ---------- events ---------- */
+$('#btn-complete').addEventListener('click', () => setMode('complete'));
+$('#btn-build').addEventListener('click', () => { if (state.mode !== 'build') goStep(state.stepIdx); });
+$('#btn-explode').addEventListener('click', () => setExploded(!state.exploded));
+$('#btn-reset').addEventListener('click', () => Scene.flyTo(Scene.VIEWS.iso));
+$('#btn-next').addEventListener('click', next);
+$('#btn-prev').addEventListener('click', prev);
+$('#step-chips').addEventListener('click', e => { const b = e.target.closest('button[data-idx]'); if (b) goStep(+b.dataset.idx, true); });
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+  const v = b.dataset.view;
+  Scene.flyTo(v === 'fit' ? null : Scene.VIEWS[v]);
+}));
+$('#check-badge').addEventListener('click', () => { state.tab = 'check'; renderTabs(); });
+document.querySelectorAll('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => { state.tab = b.dataset.tab; renderTabs(); }));
+
+$('#layer-range').addEventListener('input', e => setLayer(+e.target.value));
+$('#layer-prev').addEventListener('click', () => setLayer(state.layer <= 1 ? (state.layer === 0 ? state.model.layers : 0) : state.layer - 1));
+$('#layer-next').addEventListener('click', () => setLayer(state.layer === 0 ? 1 : (state.layer >= state.model.layers ? 0 : state.layer + 1)));
+$('#layer-only').addEventListener('change', e => { state.layerOnly = e.target.checked; refresh(); });
+
+$('#panel-parts').addEventListener('click', e => {
+  const v = e.target.closest('[data-pview]');
+  if (v) { state.partsView = v.dataset.pview; state.partsKey = null; refresh(); return; }
+  const k = e.target.closest('[data-pkey]');
+  if (k) { state.partsKey = state.partsKey === k.dataset.pkey ? null : k.dataset.pkey; refresh(); }
+});
+$('#panel-check').addEventListener('click', e => { const b = e.target.closest('[data-block]'); if (b) select(b.dataset.block, { reveal: true }); });
+function onSelAction(e) {
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const id = state.selectedId;
+  if (a.dataset.act === 'deselect') select(null);
+  else if (a.dataset.act === 'goto-step' && id) { const b = state.model.byId.get(id); goStep(state.model.steps.findIndex(s => s.step === b.step)); }
+  else if (a.dataset.act === 'focus' && id) Scene.focusBlock(id);
+}
+$('#panel-selected').addEventListener('click', onSelAction);
+$('#selcard').addEventListener('click', onSelAction);
+
+// 3D click-to-select (ignored when the pointer was dragged to orbit/pan)
+const canvas = Scene.canvas, tip = $('#tip');
+let down = null, hoverRaf = 0;
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), btn: e.button }; });
+canvas.addEventListener('pointerup', e => {
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+  if (down.btn === 0 && moved < 6 && performance.now() - down.t < 700) {
+    const id = Scene.pick(e);
+    select(id === state.selectedId ? null : id, { fromView: !!id });
+  }
+  down = null;
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse' || e.buttons) { tip.hidden = true; return; }
+  cancelAnimationFrame(hoverRaf);
+  hoverRaf = requestAnimationFrame(() => {
+    const id = Scene.pick(e);
+    state.hoverId = id;
+    canvas.style.cursor = id ? 'pointer' : '';
+    if (id) {
+      const b = state.model.byId.get(id), rect = $('#viewport').getBoundingClientRect();
+      tip.innerHTML = `<b>#${b.num}</b> ${typeLabel(b.type)} ${esc(colorName(b.color))} · Step ${state.model.steps.findIndex(s => s.step === b.step) + 1}`;
+      tip.style.left = (e.clientX - rect.left) + 'px';
+      tip.style.top = (e.clientY - rect.top) + 'px';
+      tip.hidden = false;
+    } else tip.hidden = true;
+  });
+});
+canvas.addEventListener('pointerleave', () => { state.hoverId = null; tip.hidden = true; });
+
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea') || !$('#modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  switch (e.key) {
+    case 'ArrowRight': next(); e.preventDefault(); break;
+    case 'ArrowLeft': prev(); e.preventDefault(); break;
+    case 'e': case 'E': setExploded(!state.exploded); break;
+    case 'f': case 'F': Scene.flyTo(null); break;
+    case 'r': case 'R': Scene.flyTo(Scene.VIEWS.iso); break;
+    case 'Escape': select(null); break;
+  }
+});
+
+/* ---------- JSON export / import ---------- */
+const modal = $('#modal'), jsonText = $('#json-text'), mStatus = $('#modal-status');
+let downloadsNS; // undefined = not asked yet / standalone, null = unavailable in this view
+if (window.claude && typeof window.claude.use === 'function') {
+  $('#btn-save').hidden = true;
+  window.claude.use('downloads').then(ns => { downloadsNS = ns; $('#btn-save').hidden = !ns; }).catch(() => { downloadsNS = null; });
+}
+function status(msg, kind = '') { mStatus.textContent = msg; mStatus.className = 'status ' + kind; }
+function openModal(kind) {
+  modal.hidden = false;
+  status('');
+  const exp = kind === 'export';
+  $('#modal-title').textContent = exp ? 'モデルJSONを書き出す' : 'モデルJSONを読み込む';
+  $('#modal-note').textContent = exp
+    ? `「${state.model.name}」の全 ${state.model.blocks.length} ブロック・${state.model.steps.length} Step・色定義を含むJSONです。コピーまたは保存して、あとで「JSONを読み込む」から復元できます。`
+    : 'エクスポートしたJSONを貼り付けるか、.json ファイルを選んでください。読み込むと構造チェックも自動で再実行されます。';
+  $('#export-actions').hidden = !exp;
+  $('#import-actions').hidden = exp;
+  jsonText.readOnly = exp;
+  jsonText.value = exp ? modelToJSON(state.model) : '';
+  jsonText.placeholder = exp ? '' : '{\n  "format": "blockmade.model",\n  "name": "...",\n  "blocks": [ ... ]\n}';
+  setTimeout(() => { jsonText.focus(); if (exp) jsonText.setSelectionRange(0, 0); }, 30);
+}
+function closeModal() { modal.hidden = true; }
+$('#btn-export').addEventListener('click', () => openModal('export'));
+$('#btn-import').addEventListener('click', () => openModal('import'));
+$('#modal-close').addEventListener('click', closeModal);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+$('#btn-copy').addEventListener('click', () => {
+  const text = jsonText.value;
+  const fallback = () => { jsonText.focus(); jsonText.select(); status('テキストを選択しました。Ctrl+C / ⌘C でコピーしてください。'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => status('クリップボードにコピーしました。', 'ok'), fallback);
+  else fallback();
+});
+$('#btn-save').addEventListener('click', async () => {
+  const text = jsonText.value;
+  const fname = (state.model.nameEn || 'blockmade-model').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json';
+  if (downloadsNS) {
+    try { await downloadsNS.save({ filename: fname, data: text }); status(`${fname} を保存しました。`, 'ok'); }
+    catch (err) { status(err && err.code === 'declined' ? '保存をキャンセルしました。' : '保存できませんでした。「コピー」をお使いください。', err && err.code === 'declined' ? '' : 'bad'); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  status(`${fname} を保存しました。`, 'ok');
+});
+function applyJSONText(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch (err) { status('JSONとして読み取れません: ' + err.message, 'bad'); return; }
+  try {
+    const m = loadModel(raw, { persist: true });
+    status(`「${m.name}」を読み込みました（${m.blocks.length} ブロック / ${m.steps.length} Step）。`, 'ok');
+    setTimeout(closeModal, 700);
+  } catch (err) { status('モデルを復元できません: ' + err.message, 'bad'); }
+}
+$('#btn-apply').addEventListener('click', () => applyJSONText(jsonText.value));
+$('#file-input').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { jsonText.value = String(rd.result); applyJSONText(jsonText.value); };
+  rd.onerror = () => status('ファイルを読み込めませんでした。', 'bad');
+  rd.readAsText(f);
+  e.target.value = '';
+});
+$('#btn-sample').addEventListener('click', () => {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+  loadModel(MODEL_DATA);
+  status('サンプルの時計塔に戻しました。', 'ok');
+  setTimeout(closeModal, 600);
+});
+
+/* ---------- boot ---------- */
+if (matchMedia('(pointer: coarse)').matches) $('#hint').textContent = '1本指: 回転 · 2本指: ズーム / パン · タップ: 選択';
+let booted = false;
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) { loadModel(JSON.parse(saved)); booted = true; }
+} catch (e) { booted = false; }
+if (!booted) loadModel(MODEL_DATA);
+
+// expose for debugging / scripted checks
+window.BlockMade = { state, normalizeModel, validateModel, loadModel, modelToJSON };
+})();
+</script>
+<script>
+// Fallback when the 3D library could not load (e.g. offline)
+if (typeof THREE === 'undefined' || !THREE.OrbitControls) {
+  const v = document.getElementById('viewport');
+  v.insertAdjacentHTML('beforeend', '<div class="gl-error">3Dライブラリ (Three.js) を読み込めませんでした。ネットワーク接続を確認して再読み込みしてください。</div>');
+}
+</script>
+
+</body>
+</html>
