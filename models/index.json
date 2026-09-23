@@ -1,0 +1,58 @@
+{
+  "format": "blockmade.library",
+  "version": 1,
+  "works": [
+    {
+      "id": "clock-tower",
+      "file": "models/clock-tower.json",
+      "name": "小さな時計塔",
+      "nameEn": "Small Clock Tower",
+      "description": "8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。",
+      "author": "Claude",
+      "createdAt": "2026-09-23",
+      "blocks": 63,
+      "steps": 17,
+      "layers": 14,
+      "size": "8×8×14"
+    },
+    {
+      "id": "red-roof-house",
+      "file": "models/red-roof-house.json",
+      "name": "赤い屋根の家",
+      "nameEn": "Red-Roof House",
+      "description": "芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。",
+      "author": "Claude",
+      "createdAt": "2026-09-23",
+      "blocks": 88,
+      "steps": 11,
+      "layers": 10,
+      "size": "12×12×10"
+    },
+    {
+      "id": "star-fighter",
+      "file": "models/star-fighter.json",
+      "name": "スターファイター",
+      "nameEn": "Star Fighter",
+      "description": "展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。",
+      "author": "Claude",
+      "createdAt": "2026-09-23",
+      "blocks": 31,
+      "steps": 15,
+      "layers": 10,
+      "size": "12×15×10"
+    },
+    {
+      "id": "block-robot",
+      "file": "models/block-robot.json",
+      "name": "ブロックロボ",
+      "nameEn": "Block Robot",
+      "description": "胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。",
+      "author": "Claude",
+      "createdAt": "2026-09-23",
+      "blocks": 39,
+      "steps": 13,
+      "layers": 14,
+      "size": "10×4×14"
+    }
+  ]
+}

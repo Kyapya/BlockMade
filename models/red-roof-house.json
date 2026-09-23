@@ -1,0 +1,187 @@
+{
+  "format": "blockmade.model",
+  "version": 1,
+  "name": "赤い屋根の家",
+  "nameEn": "Red-Roof House",
+  "description": "芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。",
+  "author": "Claude",
+  "createdAt": "2026-09-23",
+  "colors": {
+    "green": {
+      "name": "Green",
+      "hex": "#2e8b50"
+    },
+    "tan": {
+      "name": "Tan",
+      "hex": "#d6b97c"
+    },
+    "dark-green": {
+      "name": "Dark Green",
+      "hex": "#1f5a3a"
+    },
+    "brown": {
+      "name": "Brown",
+      "hex": "#6e452b"
+    },
+    "white": {
+      "name": "White",
+      "hex": "#f0efe9"
+    },
+    "trans-blue": {
+      "name": "Trans Blue",
+      "hex": "#7cc3f0",
+      "opacity": 0.55
+    },
+    "dark-red": {
+      "name": "Dark Red",
+      "hex": "#7a2426"
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "芝生の土台",
+      "description": "緑の2×12を6本、前後方向に並べて12×12の芝生をつくります。この上に家の壁が横切るように載り、土台全体をつなぎます。"
+    },
+    {
+      "step": 2,
+      "title": "庭と小道",
+      "description": "正面の庭に砂色の2×3で小道を敷き、左右に深緑の2×2で植え込みをつくります。"
+    },
+    {
+      "step": 3,
+      "title": "壁の1段目",
+      "description": "砂色のブロックで10×8の壁の1段目を立てます。正面中央の2スタッドには茶色の1×2を置いて扉の下端にします。"
+    },
+    {
+      "step": 4,
+      "title": "壁の2段目と窓",
+      "description": "白いブロックで2段目を積みます。継ぎ目が下の段とずれるように置き、窓の位置には透明ブルーを入れます。"
+    },
+    {
+      "step": 5,
+      "title": "壁の3段目",
+      "description": "3段目も継ぎ目をずらして積みます。窓と扉はもう1段上まで続きます。"
+    },
+    {
+      "step": 6,
+      "title": "壁の4段目（まぐさ）",
+      "description": "白いブロックで4段目を積み、扉と窓の上をふさぎます。壁はここまでです。"
+    },
+    {
+      "step": 7,
+      "title": "軒と破風",
+      "description": "前後に屋根の軒を2列ずつ、壁より1スタッド外まで張り出して載せます。左右の壁の上には白い1×6で三角の破風の最下段をつくります。"
+    },
+    {
+      "step": 8,
+      "title": "屋根 2段目",
+      "description": "1スタッド内側にずらして屋根の2段目を載せます。継ぎ目が下段と重ならないよう2×4を3本ずつ使います。破風は1×4です。"
+    },
+    {
+      "step": 9,
+      "title": "屋根 3段目",
+      "description": "さらに1スタッド内側に屋根を載せ、破風の頂上に1×2を置きます。"
+    },
+    {
+      "step": 10,
+      "title": "屋根 4段目",
+      "description": "屋根の4段目です。前後の列が破風の頂上をはさんで固定します。"
+    },
+    {
+      "step": 11,
+      "title": "棟（むね）",
+      "description": "最後に屋根の頂上へ2×6を2本載せて、前後の屋根をつなぎます。完成です。"
+    }
+  ],
+  "blocks": [
+    {"id":"block_001","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_002","type":"2x12","width":2,"depth":12,"height":1,"x":2,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_003","type":"2x12","width":2,"depth":12,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_004","type":"2x12","width":2,"depth":12,"height":1,"x":6,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_005","type":"2x12","width":2,"depth":12,"height":1,"x":8,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_006","type":"2x12","width":2,"depth":12,"height":1,"x":10,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_007","type":"2x3","width":2,"depth":3,"height":1,"x":5,"y":1,"z":9,"rotation":0,"color":"tan","step":2},
+    {"id":"block_008","type":"2x2","width":2,"depth":2,"height":1,"x":1,"y":1,"z":10,"rotation":0,"color":"dark-green","step":2},
+    {"id":"block_009","type":"2x2","width":2,"depth":2,"height":1,"x":9,"y":1,"z":10,"rotation":0,"color":"dark-green","step":2},
+    {"id":"block_010","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":1,"z":1,"rotation":90,"color":"tan","step":3},
+    {"id":"block_011","type":"1x6","width":1,"depth":6,"height":1,"x":5,"y":1,"z":1,"rotation":90,"color":"tan","step":3},
+    {"id":"block_012","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":1,"z":8,"rotation":90,"color":"tan","step":3},
+    {"id":"block_013","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":1,"z":8,"rotation":90,"color":"brown","step":3},
+    {"id":"block_014","type":"1x4","width":1,"depth":4,"height":1,"x":7,"y":1,"z":8,"rotation":90,"color":"tan","step":3},
+    {"id":"block_015","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":1,"z":2,"rotation":0,"color":"tan","step":3},
+    {"id":"block_016","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":1,"z":2,"rotation":0,"color":"tan","step":3},
+    {"id":"block_017","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":1,"rotation":0,"color":"white","step":4},
+    {"id":"block_018","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":2,"z":3,"rotation":0,"color":"white","step":4},
+    {"id":"block_019","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":4,"rotation":0,"color":"trans-blue","step":4},
+    {"id":"block_020","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":6,"rotation":0,"color":"white","step":4},
+    {"id":"block_021","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":2,"z":8,"rotation":0,"color":"white","step":4},
+    {"id":"block_022","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":1,"rotation":0,"color":"white","step":4},
+    {"id":"block_023","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":2,"z":3,"rotation":0,"color":"white","step":4},
+    {"id":"block_024","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":4,"rotation":0,"color":"trans-blue","step":4},
+    {"id":"block_025","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":6,"rotation":0,"color":"white","step":4},
+    {"id":"block_026","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":2,"z":8,"rotation":0,"color":"white","step":4},
+    {"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":1,"rotation":90,"color":"white","step":4},
+    {"id":"block_028","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":2,"z":1,"rotation":0,"color":"white","step":4},
+    {"id":"block_029","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":1,"rotation":90,"color":"trans-blue","step":4},
+    {"id":"block_030","type":"1x2","width":1,"depth":2,"height":1,"x":7,"y":2,"z":1,"rotation":90,"color":"white","step":4},
+    {"id":"block_031","type":"1x1","width":1,"depth":1,"height":1,"x":9,"y":2,"z":1,"rotation":0,"color":"white","step":4},
+    {"id":"block_032","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":8,"rotation":90,"color":"trans-blue","step":4},
+    {"id":"block_033","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":2,"z":8,"rotation":0,"color":"white","step":4},
+    {"id":"block_034","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":8,"rotation":90,"color":"brown","step":4},
+    {"id":"block_035","type":"1x1","width":1,"depth":1,"height":1,"x":7,"y":2,"z":8,"rotation":0,"color":"white","step":4},
+    {"id":"block_036","type":"1x2","width":1,"depth":2,"height":1,"x":8,"y":2,"z":8,"rotation":90,"color":"trans-blue","step":4},
+    {"id":"block_037","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":3,"z":1,"rotation":90,"color":"white","step":5},
+    {"id":"block_038","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":3,"z":1,"rotation":90,"color":"trans-blue","step":5},
+    {"id":"block_039","type":"1x4","width":1,"depth":4,"height":1,"x":7,"y":3,"z":1,"rotation":90,"color":"white","step":5},
+    {"id":"block_040","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":3,"z":8,"rotation":0,"color":"white","step":5},
+    {"id":"block_041","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":3,"z":8,"rotation":90,"color":"trans-blue","step":5},
+    {"id":"block_042","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":3,"z":8,"rotation":0,"color":"white","step":5},
+    {"id":"block_043","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":3,"z":8,"rotation":90,"color":"brown","step":5},
+    {"id":"block_044","type":"1x1","width":1,"depth":1,"height":1,"x":7,"y":3,"z":8,"rotation":0,"color":"white","step":5},
+    {"id":"block_045","type":"1x2","width":1,"depth":2,"height":1,"x":8,"y":3,"z":8,"rotation":90,"color":"trans-blue","step":5},
+    {"id":"block_046","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":3,"z":8,"rotation":0,"color":"white","step":5},
+    {"id":"block_047","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":2,"rotation":0,"color":"white","step":5},
+    {"id":"block_048","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":4,"rotation":0,"color":"trans-blue","step":5},
+    {"id":"block_049","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":6,"rotation":0,"color":"white","step":5},
+    {"id":"block_050","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":2,"rotation":0,"color":"white","step":5},
+    {"id":"block_051","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":4,"rotation":0,"color":"trans-blue","step":5},
+    {"id":"block_052","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":6,"rotation":0,"color":"white","step":5},
+    {"id":"block_053","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":4,"z":1,"rotation":0,"color":"white","step":6},
+    {"id":"block_054","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":4,"z":3,"rotation":0,"color":"white","step":6},
+    {"id":"block_055","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":4,"z":1,"rotation":0,"color":"white","step":6},
+    {"id":"block_056","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":4,"z":3,"rotation":0,"color":"white","step":6},
+    {"id":"block_057","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":1,"rotation":90,"color":"white","step":6},
+    {"id":"block_058","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":1,"rotation":90,"color":"white","step":6},
+    {"id":"block_059","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":8,"rotation":90,"color":"white","step":6},
+    {"id":"block_060","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":8,"rotation":90,"color":"white","step":6},
+    {"id":"block_061","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":5,"z":0,"rotation":90,"color":"dark-red","step":7},
+    {"id":"block_062","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":5,"z":0,"rotation":90,"color":"dark-red","step":7},
+    {"id":"block_063","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":5,"z":8,"rotation":90,"color":"dark-red","step":7},
+    {"id":"block_064","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":5,"z":8,"rotation":90,"color":"dark-red","step":7},
+    {"id":"block_065","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":5,"z":2,"rotation":0,"color":"white","step":7},
+    {"id":"block_066","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":5,"z":2,"rotation":0,"color":"white","step":7},
+    {"id":"block_067","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_068","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_069","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_070","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_071","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_072","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},
+    {"id":"block_073","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":6,"z":3,"rotation":0,"color":"white","step":8},
+    {"id":"block_074","type":"1x4","width":1,"depth":4,"height":1,"x":10,"y":6,"z":3,"rotation":0,"color":"white","step":8},
+    {"id":"block_075","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":7,"z":2,"rotation":90,"color":"dark-red","step":9},
+    {"id":"block_076","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":7,"z":2,"rotation":90,"color":"dark-red","step":9},
+    {"id":"block_077","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":7,"z":6,"rotation":90,"color":"dark-red","step":9},
+    {"id":"block_078","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":7,"z":6,"rotation":90,"color":"dark-red","step":9},
+    {"id":"block_079","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":7,"z":4,"rotation":0,"color":"white","step":9},
+    {"id":"block_080","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":7,"z":4,"rotation":0,"color":"white","step":9},
+    {"id":"block_081","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_082","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_083","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_084","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_085","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_086","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},
+    {"id":"block_087","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":9,"z":4,"rotation":90,"color":"dark-red","step":11},
+    {"id":"block_088","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":9,"z":4,"rotation":90,"color":"dark-red","step":11}
+  ]
+}

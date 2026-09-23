@@ -1,0 +1,161 @@
+{
+  "format": "blockmade.model",
+  "version": 1,
+  "name": "スターファイター",
+  "nameEn": "Star Fighter",
+  "description": "展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。",
+  "author": "Claude",
+  "createdAt": "2026-09-23",
+  "colors": {
+    "dark-gray": {
+      "name": "Dark Gray",
+      "hex": "#59616b"
+    },
+    "black": {
+      "name": "Black",
+      "hex": "#25282d"
+    },
+    "light-gray": {
+      "name": "Light Gray",
+      "hex": "#a8afb7"
+    },
+    "white": {
+      "name": "White",
+      "hex": "#f0efe9"
+    },
+    "trans-blue": {
+      "name": "Trans Blue",
+      "hex": "#7cc3f0",
+      "opacity": 0.55
+    },
+    "red": {
+      "name": "Red",
+      "hex": "#b23a30"
+    },
+    "trans-orange": {
+      "name": "Trans Orange",
+      "hex": "#ff9b2e",
+      "opacity": 0.7
+    },
+    "trans-red": {
+      "name": "Trans Red",
+      "hex": "#ff4a3d",
+      "opacity": 0.7
+    },
+    "trans-green": {
+      "name": "Trans Green",
+      "hex": "#5fe07a",
+      "opacity": 0.6
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "展示スタンド",
+      "description": "ダークグレーの4×6を台座に置き、黒の2×4と2×2を2段重ねて支柱にします。"
+    },
+    {
+      "step": 2,
+      "title": "キール（竜骨）",
+      "description": "支柱の上に明るいグレーの2×10を前後方向に載せます。機体の背骨になります。"
+    },
+    {
+      "step": 3,
+      "title": "機体の下半分",
+      "description": "キールの上に白い4×6と4×4、機首の2×4を前後に並べます。"
+    },
+    {
+      "step": 4,
+      "title": "腹部の張り出し",
+      "description": "機体の下にグレーの1×6を左右1本ずつ、下から差し込みます。"
+    },
+    {
+      "step": 5,
+      "title": "主翼",
+      "description": "明るいグレーの2×12を2本、左右方向に機体の上へ渡して主翼にします。"
+    },
+    {
+      "step": 6,
+      "title": "機体の上半分",
+      "description": "主翼の前後に白い2×4を載せ、後ろには機体から張り出す2×4を置きます。"
+    },
+    {
+      "step": 7,
+      "title": "キャノピーと機首",
+      "description": "透明ブルーの2×2でキャノピー、赤い2×2で機首の上面をつくります。"
+    },
+    {
+      "step": 8,
+      "title": "メインエンジン",
+      "description": "機体後部の張り出しの下に、透明オレンジの1×2をエンジン噴射口として差し込みます。"
+    },
+    {
+      "step": 9,
+      "title": "機関砲",
+      "description": "主翼の下に黒い1×4を左右1本ずつ、前向きに差し込みます。"
+    },
+    {
+      "step": 10,
+      "title": "エンジンポッド",
+      "description": "主翼の上の左右にダークグレーの2×4を載せます。後ろに1スタッド張り出します。"
+    },
+    {
+      "step": 11,
+      "title": "ポッドの噴射口",
+      "description": "ポッドの張り出しの下に透明オレンジの1×2を差し込みます。"
+    },
+    {
+      "step": 12,
+      "title": "翼端",
+      "description": "主翼の両端に赤い1×4を載せます。"
+    },
+    {
+      "step": 13,
+      "title": "背面とキャノピー上部",
+      "description": "主翼の中央にダークグレーの2×4、キャノピーの上に透明ブルーの1×2を重ねます。"
+    },
+    {
+      "step": 14,
+      "title": "航行灯",
+      "description": "左の翼端に透明レッド、右の翼端に透明グリーンの1×1を載せます。"
+    },
+    {
+      "step": 15,
+      "title": "尾翼",
+      "description": "背面の上に赤い1×3と1×2を重ねて尾翼を立てます。完成です。"
+    }
+  ],
+  "blocks": [
+    {"id":"block_001","type":"4x6","width":4,"depth":6,"height":1,"x":4,"y":0,"z":6,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_002","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":1,"z":7,"rotation":0,"color":"black","step":1},
+    {"id":"block_003","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":2,"z":8,"rotation":0,"color":"black","step":1},
+    {"id":"block_004","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":3,"z":8,"rotation":0,"color":"black","step":1},
+    {"id":"block_005","type":"2x10","width":2,"depth":10,"height":1,"x":5,"y":4,"z":3,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_006","type":"4x6","width":4,"depth":6,"height":1,"x":4,"y":5,"z":2,"rotation":0,"color":"white","step":3},
+    {"id":"block_007","type":"4x4","width":4,"depth":4,"height":1,"x":4,"y":5,"z":8,"rotation":0,"color":"white","step":3},
+    {"id":"block_008","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":5,"z":12,"rotation":0,"color":"white","step":3},
+    {"id":"block_009","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":4,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_010","type":"1x6","width":1,"depth":6,"height":1,"x":7,"y":4,"z":4,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_011","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":6,"z":3,"rotation":90,"color":"light-gray","step":5},
+    {"id":"block_012","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":6,"z":5,"rotation":90,"color":"light-gray","step":5},
+    {"id":"block_013","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":7,"rotation":90,"color":"white","step":6},
+    {"id":"block_014","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":1,"rotation":90,"color":"white","step":6},
+    {"id":"block_015","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":6,"z":9,"rotation":0,"color":"trans-blue","step":7},
+    {"id":"block_016","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":6,"z":12,"rotation":0,"color":"red","step":7},
+    {"id":"block_017","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":5,"z":1,"rotation":90,"color":"trans-orange","step":8},
+    {"id":"block_018","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":5,"z":6,"rotation":0,"color":"black","step":9},
+    {"id":"block_019","type":"1x4","width":1,"depth":4,"height":1,"x":9,"y":5,"z":6,"rotation":0,"color":"black","step":9},
+    {"id":"block_020","type":"2x4","width":2,"depth":4,"height":1,"x":1,"y":7,"z":2,"rotation":0,"color":"dark-gray","step":10},
+    {"id":"block_021","type":"2x4","width":2,"depth":4,"height":1,"x":9,"y":7,"z":2,"rotation":0,"color":"dark-gray","step":10},
+    {"id":"block_022","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":6,"z":2,"rotation":90,"color":"trans-orange","step":11},
+    {"id":"block_023","type":"1x2","width":1,"depth":2,"height":1,"x":9,"y":6,"z":2,"rotation":90,"color":"trans-orange","step":11},
+    {"id":"block_024","type":"1x4","width":1,"depth":4,"height":1,"x":0,"y":7,"z":3,"rotation":0,"color":"red","step":12},
+    {"id":"block_025","type":"1x4","width":1,"depth":4,"height":1,"x":11,"y":7,"z":3,"rotation":0,"color":"red","step":12},
+    {"id":"block_026","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":7,"z":3,"rotation":0,"color":"dark-gray","step":13},
+    {"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":7,"z":9,"rotation":90,"color":"trans-blue","step":13},
+    {"id":"block_028","type":"1x1","width":1,"depth":1,"height":1,"x":0,"y":8,"z":5,"rotation":0,"color":"trans-red","step":14},
+    {"id":"block_029","type":"1x1","width":1,"depth":1,"height":1,"x":11,"y":8,"z":5,"rotation":0,"color":"trans-green","step":14},
+    {"id":"block_030","type":"1x3","width":1,"depth":3,"height":1,"x":5,"y":8,"z":3,"rotation":0,"color":"red","step":15},
+    {"id":"block_031","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":9,"z":3,"rotation":0,"color":"red","step":15}
+  ]
+}

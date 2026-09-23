@@ -1,0 +1,149 @@
+{
+  "format": "blockmade.model",
+  "version": 1,
+  "name": "ブロックロボ",
+  "nameEn": "Block Robot",
+  "description": "胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。",
+  "author": "Claude",
+  "createdAt": "2026-09-23",
+  "colors": {
+    "dark-gray": {
+      "name": "Dark Gray",
+      "hex": "#59616b"
+    },
+    "light-gray": {
+      "name": "Light Gray",
+      "hex": "#a8afb7"
+    },
+    "blue": {
+      "name": "Blue",
+      "hex": "#2f63b8"
+    },
+    "trans-red": {
+      "name": "Trans Red",
+      "hex": "#ff4a3d",
+      "opacity": 0.7
+    },
+    "black": {
+      "name": "Black",
+      "hex": "#25282d"
+    },
+    "red": {
+      "name": "Red",
+      "hex": "#b23a30"
+    },
+    "trans-yellow": {
+      "name": "Trans Yellow",
+      "hex": "#ffe45c",
+      "opacity": 0.7
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "足",
+      "description": "ダークグレーの2×4を2つ、2スタッド空けて並べます。"
+    },
+    {
+      "step": 2,
+      "title": "脚",
+      "description": "足の中央に2×2を3段ずつ積みます。真ん中の段はひざとしてダークグレーにします。"
+    },
+    {
+      "step": 3,
+      "title": "腰",
+      "description": "ダークグレーの2×6を左右の脚にまたがせて載せ、両脚をつなぎます。"
+    },
+    {
+      "step": 4,
+      "title": "胴体の下段",
+      "description": "青い4×6を腰の上に載せます。前後に1スタッドずつ張り出します。"
+    },
+    {
+      "step": 5,
+      "title": "胸とランプ",
+      "description": "青い2×4を左右に、中央に2×3を置き、正面中央には透明レッドの1×2をランプとして入れます。"
+    },
+    {
+      "step": 6,
+      "title": "胴体の上段",
+      "description": "青い4×6で胸の部品をまとめてふさぎます。"
+    },
+    {
+      "step": 7,
+      "title": "肩",
+      "description": "ダークグレーの2×10を胴体の上に左右方向に渡します。両端が2スタッドずつ張り出して腕の付け根になります。"
+    },
+    {
+      "step": 8,
+      "title": "腕",
+      "description": "肩の張り出しの下に2×2を上から順に3段ずつ吊り下げ、いちばん下は黒い手にします。"
+    },
+    {
+      "step": 9,
+      "title": "肩当て",
+      "description": "肩の両端の上に赤い2×2を載せます。"
+    },
+    {
+      "step": 10,
+      "title": "首と頭の後ろ",
+      "description": "肩の中央にダークグレーの2×2で首を立て、その上に明るいグレーの2×6で頭の後ろ半分をつくります。"
+    },
+    {
+      "step": 11,
+      "title": "頭のてっぺん",
+      "description": "明るいグレーの1×6を後ろに、2×6を前に載せます。前の2×6は顔の部分まで1スタッド張り出します。"
+    },
+    {
+      "step": 12,
+      "title": "顔",
+      "description": "てっぺんの張り出しの下に顔の部品を差し込みます。透明イエローの1×1が目になります。"
+    },
+    {
+      "step": 13,
+      "title": "アンテナ",
+      "description": "頭の上にダークグレーの1×1を2本立て、先端に透明レッドの1×1を載せて完成です。"
+    }
+  ],
+  "blocks": [
+    {"id":"block_001","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_002","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_003","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":1,"z":1,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_004","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":1,"rotation":0,"color":"dark-gray","step":2},
+    {"id":"block_005","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_006","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":1,"z":1,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_007","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":2,"z":1,"rotation":0,"color":"dark-gray","step":2},
+    {"id":"block_008","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_009","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":4,"z":1,"rotation":90,"color":"dark-gray","step":3},
+    {"id":"block_010","type":"4x6","width":4,"depth":6,"height":1,"x":0,"y":5,"z":0,"rotation":90,"color":"blue","step":4},
+    {"id":"block_011","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":0,"rotation":0,"color":"blue","step":5},
+    {"id":"block_012","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":0,"rotation":0,"color":"blue","step":5},
+    {"id":"block_013","type":"2x3","width":2,"depth":3,"height":1,"x":2,"y":6,"z":0,"rotation":0,"color":"blue","step":5},
+    {"id":"block_014","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":6,"z":3,"rotation":90,"color":"trans-red","step":5},
+    {"id":"block_015","type":"4x6","width":4,"depth":6,"height":1,"x":0,"y":7,"z":0,"rotation":90,"color":"blue","step":6},
+    {"id":"block_016","type":"2x10","width":2,"depth":10,"height":1,"x":-2,"y":8,"z":1,"rotation":90,"color":"dark-gray","step":7},
+    {"id":"block_017","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":7,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_018","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":6,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_019","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":5,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_020","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":4,"z":1,"rotation":0,"color":"black","step":8},
+    {"id":"block_021","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":7,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_022","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":6,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_023","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":5,"z":1,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_024","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":4,"z":1,"rotation":0,"color":"black","step":8},
+    {"id":"block_025","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":9,"z":1,"rotation":0,"color":"red","step":9},
+    {"id":"block_026","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":9,"z":1,"rotation":0,"color":"red","step":9},
+    {"id":"block_027","type":"2x2","width":2,"depth":2,"height":1,"x":2,"y":9,"z":1,"rotation":0,"color":"dark-gray","step":10},
+    {"id":"block_028","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":10,"z":1,"rotation":90,"color":"light-gray","step":10},
+    {"id":"block_029","type":"1x6","width":1,"depth":6,"height":1,"x":0,"y":11,"z":1,"rotation":90,"color":"light-gray","step":11},
+    {"id":"block_030","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":11,"z":2,"rotation":90,"color":"light-gray","step":11},
+    {"id":"block_031","type":"1x1","width":1,"depth":1,"height":1,"x":0,"y":10,"z":3,"rotation":0,"color":"light-gray","step":12},
+    {"id":"block_032","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":10,"z":3,"rotation":0,"color":"trans-yellow","step":12},
+    {"id":"block_033","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":10,"z":3,"rotation":90,"color":"light-gray","step":12},
+    {"id":"block_034","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":10,"z":3,"rotation":0,"color":"trans-yellow","step":12},
+    {"id":"block_035","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":10,"z":3,"rotation":0,"color":"light-gray","step":12},
+    {"id":"block_036","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":12,"z":2,"rotation":0,"color":"dark-gray","step":13},
+    {"id":"block_037","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":12,"z":2,"rotation":0,"color":"dark-gray","step":13},
+    {"id":"block_038","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":13,"z":2,"rotation":0,"color":"trans-red","step":13},
+    {"id":"block_039","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":13,"z":2,"rotation":0,"color":"trans-red","step":13}
+  ]
+}

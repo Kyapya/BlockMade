@@ -29,13 +29,16 @@ button{cursor:pointer}
 #app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;padding-inline:16px;padding-block:12px 16px}
 
 /* ---------- top bar ---------- */
-.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
-.brand{display:flex;align-items:center;gap:10px;margin-right:6px;min-width:0}
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
 .brand-mark{width:30px;height:22px;border-radius:4px;background:var(--accent);position:relative;flex:none;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
 .brand-mark::before,.brand-mark::after{content:"";position:absolute;top:-5px;width:8px;height:5px;border-radius:2px 2px 0 0;background:var(--accent)}
 .brand-mark::before{left:5px}.brand-mark::after{right:5px}
 .brand-name{font-family:var(--f-display);font-size:18px;letter-spacing:.02em;line-height:1}
-.brand-model{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.work-switch{display:inline-flex;align-items:center;gap:8px;max-width:340px;border:1px solid var(--line-2);background:var(--panel);border-radius:9px;padding:6px 10px 6px 12px;font-size:13px;min-width:0}
+.work-switch:hover{background:var(--panel-2)}
+.work-switch .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.work-switch .cnt{font-family:var(--f-mono);font-size:11px;color:var(--faint);white-space:nowrap}
 .tb-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .tb-spacer{flex:1}
 .btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--panel-2);border-radius:8px;padding:7px 12px;font-size:13px;line-height:1.2;white-space:nowrap;transition:background .15s,border-color .15s,color .15s}
@@ -44,7 +47,11 @@ button{cursor:pointer}
 .btn .k{font-family:var(--f-mono);font-size:10.5px;color:var(--faint);border:1px solid var(--line-2);border-radius:4px;padding:0 4px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
 .btn.primary:hover{background:#ffc75e}
+.btn.ai{background:linear-gradient(180deg,#2a2413,#211c10);border-color:rgba(242,181,68,.55);color:var(--accent);font-weight:700}
+.btn.ai:hover{background:#2f2814}
+.btn.danger{color:var(--bad);border-color:rgba(243,116,116,.45)}
 .btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.btn.sm{padding:5px 9px;font-size:12px}
 .seg{display:inline-flex;border:1px solid var(--line-2);border-radius:9px;padding:2px;background:var(--panel)}
 .seg button{border:0;background:transparent;border-radius:7px;padding:6px 12px;font-size:13px;color:var(--muted);white-space:nowrap}
 .seg button[aria-pressed="true"]{background:var(--panel-3);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2)}
@@ -58,7 +65,7 @@ button{cursor:pointer}
   background:radial-gradient(120% 90% at 50% 30%,#1c232d 0%,#12161c 55%,#0c0f13 100%)}
 #gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
 .ov{position:absolute;z-index:2}
-.ov-tl{top:12px;left:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 24px);pointer-events:none}
+.ov-tl{top:12px;left:12px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 200px);pointer-events:none}
 .chip{display:inline-flex;align-items:center;gap:6px;background:rgba(14,17,21,.78);backdrop-filter:blur(6px);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
 .chip b{color:var(--text);font-weight:500}
 .chip.accent{color:var(--accent);border-color:rgba(242,181,68,.45)}
@@ -82,7 +89,9 @@ button{cursor:pointer}
 .selcard .t{font-family:var(--f-mono);color:var(--select);font-weight:600}
 .selcard .x{position:absolute;top:4px;right:6px;border:0;background:none;color:var(--faint);font-size:14px}
 #tip{position:absolute;z-index:3;pointer-events:none;background:rgba(10,12,15,.92);border:1px solid var(--line-2);border-radius:6px;padding:3px 8px;font-size:12px;white-space:nowrap;transform:translate(12px,12px)}
-.gl-error{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+.vp-msg{position:absolute;inset:0;z-index:4;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted);background:rgba(12,15,19,.6)}
+.vp-msg > div{max-width:440px;line-height:1.7}
+.vp-msg b{color:var(--text)}
 
 /* ---------- side ---------- */
 .side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;padding-right:2px}
@@ -102,7 +111,7 @@ button{cursor:pointer}
 .progress{height:6px;background:var(--panel-3);border-radius:99px;overflow:hidden}
 .progress span{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
 .progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
-.nav{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:0 14px 12px}
+.nav{display:grid;grid-template-columns:1fr auto 1.4fr;gap:8px;padding:0 14px 12px}
 .nav .btn{justify-content:center;padding:9px 12px}
 .chips{display:flex;flex-wrap:wrap;gap:4px;padding:0 14px 14px}
 .chips button{width:30px;height:26px;border-radius:6px;border:1px solid var(--line-2);background:var(--panel-2);font-family:var(--f-mono);font-size:11.5px;color:var(--muted);padding:0}
@@ -114,6 +123,9 @@ button{cursor:pointer}
 .stats div{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 8px}
 .stats dt{font-size:10.5px;color:var(--faint);letter-spacing:.06em}
 .stats dd{margin:0;font-family:var(--f-mono);font-size:15px;font-weight:600}
+.origin{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;border-radius:999px;padding:2px 9px;border:1px solid var(--line-2);color:var(--muted)}
+.origin.ai{color:var(--accent);border-color:rgba(242,181,68,.45)}
+.origin.repo{color:var(--ok);border-color:rgba(98,211,146,.4)}
 
 .tabs-card{display:flex;flex-direction:column;min-height:260px;flex:1}
 .tabs{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid var(--line)}
@@ -158,19 +170,56 @@ button{cursor:pointer}
 .selpanel .big{font-family:var(--f-display);font-size:22px;letter-spacing:.02em}
 .selpanel .row{display:flex;gap:10px;align-items:center}
 .empty{color:var(--faint);font-size:13px;padding:6px 0;line-height:1.7}
-.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 
-/* ---------- modal ---------- */
+/* ---------- modals ---------- */
 .modal{position:fixed;inset:0;z-index:20;background:rgba(5,7,9,.66);display:grid;place-items:center;padding:16px}
-.sheet{width:min(760px,100%);max-height:min(88vh,860px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.sheet{width:min(760px,100%);max-height:min(90vh,900px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line-2);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.sheet.wide{width:min(1040px,100%)}
 .sheet .card-h h3{margin:0;font-size:15px}
-.sheet .body{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
-.sheet textarea{width:100%;min-height:300px;flex:1;resize:vertical;background:#0c0f13;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;font:12px/1.5 var(--f-mono);color:#d7dde5;white-space:pre;overflow:auto}
-.sheet .note{font-size:12.5px;color:var(--muted);margin:0}
+.sheet .body{padding:14px;display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
+.sheet textarea{width:100%;resize:vertical;background:#0c0f13;border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;color:#d7dde5}
+#json-text{min-height:300px;flex:1;font:12px/1.5 var(--f-mono);white-space:pre;overflow:auto}
+.sheet .note{font-size:12.5px;color:var(--muted);margin:0;line-height:1.7}
 .status{font-size:12.5px;min-height:1.4em}
 .status.ok{color:var(--ok)}.status.bad{color:var(--bad)}
 .filelabel{position:relative;overflow:hidden}
 .filelabel input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+.lib-sec{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.lib-sec h4{margin:0;font-size:13px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.wcard{display:flex;flex-direction:column;border:1px solid var(--line);background:var(--panel-2);border-radius:11px;overflow:hidden;text-align:left;padding:0}
+.wcard.cur{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.wcard .thumb{aspect-ratio:4/3;max-width:100%;background:radial-gradient(120% 90% at 50% 30%,#1f2731 0%,#12161c 70%);display:grid;place-items:center;border:0;padding:0;width:100%}
+.wcard .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.wcard .thumb span{font-size:11.5px;color:var(--faint)}
+.wcard .info{padding:9px 11px 11px;display:flex;flex-direction:column;gap:4px}
+.wcard .t{font-weight:700;font-size:14px}
+.wcard .e{font-size:11.5px;color:var(--faint)}
+.wcard .m{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.wcard .acts{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.newcard{display:grid;place-items:center;text-align:center;gap:8px;min-height:180px;border:1px dashed rgba(242,181,68,.5);background:rgba(242,181,68,.04);color:var(--accent);border-radius:11px;padding:16px}
+.newcard b{font-size:14px}
+.newcard span{font-size:12px;color:var(--muted)}
+.howto{font-size:12.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;line-height:1.7}
+.howto code{font-family:var(--f-mono);font-size:12px;color:var(--text)}
+
+#gen-prompt{min-height:76px;font-size:15px;line-height:1.6}
+.ideas{display:flex;flex-wrap:wrap;gap:6px}
+.ideas button{border:1px solid var(--line-2);background:var(--panel-2);border-radius:999px;padding:4px 11px;font-size:12.5px;color:var(--muted)}
+.ideas button:hover{color:var(--text);background:var(--panel-3)}
+.gen-opts{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.gen-opts .lbl{font-size:12px;color:var(--faint);margin-right:6px}
+.genlog{list-style:none;margin:0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#0f1317;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+.genlog li{display:flex;gap:8px;align-items:baseline;color:var(--muted)}
+.genlog li .i{width:14px;flex:none;text-align:center;font-weight:700}
+.genlog li.run{color:var(--text)}
+.genlog li.run .i{color:var(--accent);animation:blink 1s infinite}
+.genlog li.ok .i{color:var(--ok)}
+.genlog li.bad{color:var(--bad)}
+.genlog li .tm{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--faint)}
+@keyframes blink{50%{opacity:.25}}
 
 /* ---------- responsive ---------- */
 @media (max-width: 980px){
@@ -179,17 +228,17 @@ button{cursor:pointer}
   .viewport{height:min(66svh,620px);min-height:380px}
   .side{overflow:visible;padding-right:0}
   .tabs-card{min-height:0}
-  .tabpanel{max-height:none}
 }
 @media (max-width: 560px){
-  .brand-model{display:none}
+  .work-switch{max-width:100%}
   .stats{grid-template-columns:repeat(2,1fr)}
   .layerbar input[type=range]{width:120px}
   .hint{display:none}
   .viewpad button{min-width:38px;padding:4px 6px}
   .btn .k{display:none}
+  .ov-tl{max-width:calc(100% - 24px);top:auto;bottom:118px}
 }
-@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 </style>
 
 <div id="app">
@@ -197,8 +246,11 @@ button{cursor:pointer}
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-name">BlockMade</span>
-      <span class="brand-model" id="model-name">—</span>
     </div>
+    <button class="work-switch" id="btn-library" title="作品ライブラリを開く">
+      <span class="nm" id="model-name">読み込み中…</span><span class="cnt" id="lib-count"></span><span aria-hidden="true">▾</span>
+    </button>
+    <button class="btn ai" id="btn-generate">✦ AIで作る</button>
     <div class="seg" role="group" aria-label="表示モード">
       <button id="btn-complete" aria-pressed="true">完成形を見る</button>
       <button id="btn-build" aria-pressed="false">組み立てモード</button>
@@ -243,6 +295,7 @@ button{cursor:pointer}
         <div class="hint" id="hint">ドラッグ: 回転 · 右ドラッグ / Shift+ドラッグ: パン · ホイール: ズーム · クリック: 選択</div>
       </div>
       <div id="tip" hidden></div>
+      <div class="vp-msg" id="vp-msg" hidden><div id="vp-msg-text"></div></div>
     </section>
 
     <aside class="side">
@@ -251,6 +304,7 @@ button{cursor:pointer}
         <div class="body" id="steps-body"></div>
         <div class="nav">
           <button class="btn" id="btn-prev">← 前へ</button>
+          <button class="btn" id="btn-play" aria-pressed="false" title="Step 1 から自動で組み立て">▶ 再生</button>
           <button class="btn primary" id="btn-next">次へ →</button>
         </div>
         <div class="chips" id="step-chips" aria-label="Step一覧"></div>
@@ -270,9 +324,51 @@ button{cursor:pointer}
   </main>
 </div>
 
+<!-- Library -->
+<div class="modal" id="lib-modal" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="lib-title">
+    <div class="card-h"><h3 id="lib-title">作品ライブラリ</h3><button class="btn" data-close>閉じる</button></div>
+    <div class="body">
+      <div class="lib-sec"><h4>ライブラリ（GitHub: models/）</h4><span class="mono" style="font-size:11.5px;color:var(--faint)" id="lib-repo-count"></span></div>
+      <div class="lib-grid" id="lib-repo"></div>
+      <div class="lib-sec"><h4>この端末の下書き（AI生成・読み込み）</h4><span class="mono" style="font-size:11.5px;color:var(--faint)" id="lib-draft-count"></span></div>
+      <div class="lib-grid" id="lib-drafts"></div>
+      <div class="howto">下書きはこのブラウザだけに保存されています。ライブラリに登録するには、カードの「登録用にコピー」を押して、Claude とのチャットに貼り付けてください。<code>models/</code> に保存して構造チェックを通したうえで、全員が見られるライブラリに追加します。</div>
+      <div class="status" id="lib-status" role="status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AI generation -->
+<div class="modal" id="gen-modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gen-title">
+    <div class="card-h"><h3 id="gen-title">✦ AIで作品を作る</h3><button class="btn" data-close>閉じる</button></div>
+    <div class="body">
+      <p class="note">作りたいものを書くと、Claude がブロックの配置と組み立て手順を設計します。できた作品は構造チェックにかけ、問題があれば自動で直してから下書きに保存し、Step 1 から組み立てて見せます。</p>
+      <label class="sub" for="gen-prompt" style="margin:0">作りたいもの</label>
+      <textarea id="gen-prompt" placeholder="例: 白と青の小さな灯台。てっぺんに黄色いライト"></textarea>
+      <div class="ideas" id="gen-ideas">
+        <button>赤い消防車</button><button>白と青の灯台</button><button>ピラミッド</button><button>小さなお城</button><button>パンダ</button><button>新幹線</button><button>ヤシの木のある島</button><button>ロケット</button>
+      </div>
+      <div class="gen-opts">
+        <div><span class="lbl">大きさ</span><span class="seg" id="gen-size"><button data-v="s" aria-pressed="false">小 30–50</button><button data-v="m" aria-pressed="true">中 50–90</button><button data-v="l" aria-pressed="false">大 90–140</button></span></div>
+        <div><span class="lbl">設計</span><span class="seg" id="gen-tier"><button data-v="default" aria-pressed="true">標準</button><button data-v="complex" aria-pressed="false">じっくり</button></span></div>
+      </div>
+      <div class="btnrow">
+        <button class="btn primary" id="gen-go">✦ 設計する</button>
+        <button class="btn" id="gen-stop" hidden>中止</button>
+        <span class="mono" style="font-size:12px;color:var(--faint)" id="gen-elapsed"></span>
+      </div>
+      <ul class="genlog" id="gen-log" hidden></ul>
+      <div class="status" id="gen-status" role="status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- JSON export / import -->
 <div class="modal" id="modal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-    <div class="card-h"><h3 id="modal-title">モデルJSON</h3><button class="btn" id="modal-close">閉じる</button></div>
+    <div class="card-h"><h3 id="modal-title">モデルJSON</h3><button class="btn" data-close>閉じる</button></div>
     <div class="body">
       <p class="note" id="modal-note"></p>
       <textarea id="json-text" spellcheck="false" aria-label="モデルJSON"></textarea>
@@ -282,294 +378,33 @@ button{cursor:pointer}
         <button class="btn" id="btn-save">.json ファイルとして保存</button>
       </div>
       <div class="btnrow" id="import-actions">
-        <button class="btn primary" id="btn-apply">このJSONでモデルを復元</button>
+        <button class="btn primary" id="btn-apply">このJSONを読み込む</button>
         <label class="btn filelabel">ファイルを選ぶ…<input type="file" id="file-input" accept=".json,application/json"></label>
-        <button class="btn" id="btn-sample">サンプル(時計塔)に戻す</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ======================================================================
-     MODEL_DATA — ここだけを差し替えれば別の作品（宇宙船・家・ロボット…）になります。
-     座標: X=左右, Y=高さ(ブロック段数), Z=前後(+Zが正面)。単位はスタッド。
-     x,y,z はブロックの「最小角」。rotation 0 → 幅=X方向/奥行=Z方向、90 → 入れ替え。
-     height はブロック段数（1 = 通常ブロック, 2 = 2段分の高さ）。
-     ====================================================================== -->
-<script id="model-data">
-const MODEL_DATA = {
-  format: "blockmade.model",
-  version: 1,
-  name: "小さな時計塔",
-  nameEn: "Small Clock Tower",
-  description: "8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。",
-  colors: {
-    "dark-gray":  { name: "Dark Gray",  hex: "#59616b" },
-    "light-gray": { name: "Light Gray", hex: "#a8afb7" },
-    "tan":        { name: "Tan",        hex: "#d6b97c" },
-    "brown":      { name: "Brown",      hex: "#6e452b" },
-    "green":      { name: "Green",      hex: "#2e8b50" },
-    "trans-blue": { name: "Trans Blue", hex: "#7cc3f0", opacity: 0.55 },
-    "white":      { name: "White",      hex: "#f0efe9" },
-    "gold":       { name: "Gold",       hex: "#d8a83c", metalness: 0.35, roughness: 0.34 },
-    "red":        { name: "Red",        hex: "#b23a30" }
-  },
-  steps: [
-    { step: 1,  title: "土台 1段目", description: "ダークグレーの2×8を4本、長い辺を前後(Z)方向に向けて左右に隙間なく並べ、8×8の正方形の土台をつくります。" },
-    { step: 2,  title: "土台 2段目", description: "2×8を4本、90°回して1段目と直交するように重ねます。各ブロックが1段目の4本すべてをまたぐので、土台全体が1つに固定されます。" },
-    { step: 3,  title: "石段と植え込み", description: "正面中央に砂色の2×2を置いて石段にし、土台の四隅に緑の2×2で植え込みをつくります。" },
-    { step: 4,  title: "塔の1段目", description: "土台中央の4×4の範囲に壁を立てます。背面に1×4、左右に1×2。正面は扉口を空けるため、両端に1×1の柱だけを置きます。" },
-    { step: 5,  title: "扉", description: "扉口から1スタッド奥に茶色の1×2を2段積み、奥まった扉にします。" },
-    { step: 6,  title: "塔の2段目", description: "左右に1×4を前後方向に載せ、下段の継ぎ目をまたがせます。背面には1×2。正面は扉口なので空けたままにします。" },
-    { step: 7,  title: "扉の上のまぐさ", description: "正面に砂色の1×4を渡して扉口の上をふさぎます（まぐさ）。左右の柱が両端を支えます。背面に1×4、左右に1×2を置いて段を仕上げます。" },
-    { step: 8,  title: "前後の窓", description: "左右に1×4を載せ、前後の中央に透明ブルーの1×2を入れて窓にします。" },
-    { step: 9,  title: "左右の窓", description: "前後に1×4を渡し、左右の中央に透明ブルーの1×2を入れて側面の窓にします。" },
-    { step: 10, title: "時計下の帯", description: "砂色のブロックで1段積み、時計部分の下に装飾の帯をつくります。積み方は2段目と同じです。" },
-    { step: 11, title: "時計部の四隅", description: "塔の4つの角に金色の1×1を立てます。" },
-    { step: 12, title: "時計の文字盤", description: "時計がプリントされた白い1×2×2（2段分の高さ）を4面に取り付けます。文字盤は外側に向けます。" },
-    { step: 13, title: "四隅の2段目", description: "金色の1×1をもう1段重ね、文字盤と高さをそろえます。" },
-    { step: 14, title: "軒（コーニス）", description: "前後に2×6、左右に2×2を置いて、塔より1スタッド張り出した6×6の軒をつくります。内側の列が時計部の上にかみ合って支えます。" },
-    { step: 15, title: "角の飾り", description: "軒の四隅の張り出し部分に金色の1×1を立てます。" },
-    { step: 16, title: "屋根", description: "赤い2×4を2本並べて4×4の屋根にします。この2本が軒の4つの部品をまたいで1つにまとめます。" },
-    { step: 17, title: "頂部", description: "中央に赤い2×2を重ね、最後に金色の2×2を頂上に載せて完成です。" }
-  ],
-  blocks: [
-    { id: "block_001", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
-    { id: "block_002", type: "2x8",   width: 2, depth: 8, height: 1, x: 2, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
-    { id: "block_003", type: "2x8",   width: 2, depth: 8, height: 1, x: 4, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
-    { id: "block_004", type: "2x8",   width: 2, depth: 8, height: 1, x: 6, y: 0,  z: 0, rotation: 0,  color: "dark-gray",  step: 1 },
-    { id: "block_005", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 0, rotation: 90, color: "dark-gray",  step: 2 },
-    { id: "block_006", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 2, rotation: 90, color: "dark-gray",  step: 2 },
-    { id: "block_007", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 4, rotation: 90, color: "dark-gray",  step: 2 },
-    { id: "block_008", type: "2x8",   width: 2, depth: 8, height: 1, x: 0, y: 1,  z: 6, rotation: 90, color: "dark-gray",  step: 2 },
-    { id: "block_009", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 2,  z: 6, rotation: 0,  color: "tan",        step: 3 },
-    { id: "block_010", type: "2x2",   width: 2, depth: 2, height: 1, x: 0, y: 2,  z: 0, rotation: 0,  color: "green",      step: 3 },
-    { id: "block_011", type: "2x2",   width: 2, depth: 2, height: 1, x: 6, y: 2,  z: 0, rotation: 0,  color: "green",      step: 3 },
-    { id: "block_012", type: "2x2",   width: 2, depth: 2, height: 1, x: 0, y: 2,  z: 6, rotation: 0,  color: "green",      step: 3 },
-    { id: "block_013", type: "2x2",   width: 2, depth: 2, height: 1, x: 6, y: 2,  z: 6, rotation: 0,  color: "green",      step: 3 },
-    { id: "block_014", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 2,  z: 2, rotation: 90, color: "light-gray", step: 4 },
-    { id: "block_015", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 2,  z: 3, rotation: 0,  color: "light-gray", step: 4 },
-    { id: "block_016", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 2,  z: 3, rotation: 0,  color: "light-gray", step: 4 },
-    { id: "block_017", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 2,  z: 5, rotation: 0,  color: "light-gray", step: 4 },
-    { id: "block_018", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 2,  z: 5, rotation: 0,  color: "light-gray", step: 4 },
-    { id: "block_019", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 2,  z: 4, rotation: 90, color: "brown",      step: 5 },
-    { id: "block_020", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 3,  z: 4, rotation: 90, color: "brown",      step: 5 },
-    { id: "block_021", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 3,  z: 2, rotation: 0,  color: "light-gray", step: 6 },
-    { id: "block_022", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 3,  z: 2, rotation: 0,  color: "light-gray", step: 6 },
-    { id: "block_023", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 3,  z: 2, rotation: 90, color: "light-gray", step: 6 },
-    { id: "block_024", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 4,  z: 2, rotation: 90, color: "light-gray", step: 7 },
-    { id: "block_025", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 4,  z: 5, rotation: 90, color: "tan",        step: 7 },
-    { id: "block_026", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 4,  z: 3, rotation: 0,  color: "light-gray", step: 7 },
-    { id: "block_027", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 4,  z: 3, rotation: 0,  color: "light-gray", step: 7 },
-    { id: "block_028", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 5,  z: 2, rotation: 0,  color: "light-gray", step: 8 },
-    { id: "block_029", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 5,  z: 2, rotation: 0,  color: "light-gray", step: 8 },
-    { id: "block_030", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 5,  z: 2, rotation: 90, color: "trans-blue", step: 8 },
-    { id: "block_031", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 5,  z: 5, rotation: 90, color: "trans-blue", step: 8 },
-    { id: "block_032", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 6,  z: 2, rotation: 90, color: "light-gray", step: 9 },
-    { id: "block_033", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 6,  z: 5, rotation: 90, color: "light-gray", step: 9 },
-    { id: "block_034", type: "1x2",   width: 1, depth: 2, height: 1, x: 2, y: 6,  z: 3, rotation: 0,  color: "trans-blue", step: 9 },
-    { id: "block_035", type: "1x2",   width: 1, depth: 2, height: 1, x: 5, y: 6,  z: 3, rotation: 0,  color: "trans-blue", step: 9 },
-    { id: "block_036", type: "1x4",   width: 1, depth: 4, height: 1, x: 2, y: 7,  z: 2, rotation: 0,  color: "tan",        step: 10 },
-    { id: "block_037", type: "1x4",   width: 1, depth: 4, height: 1, x: 5, y: 7,  z: 2, rotation: 0,  color: "tan",        step: 10 },
-    { id: "block_038", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 7,  z: 2, rotation: 90, color: "tan",        step: 10 },
-    { id: "block_039", type: "1x2",   width: 1, depth: 2, height: 1, x: 3, y: 7,  z: 5, rotation: 90, color: "tan",        step: 10 },
-    { id: "block_040", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 8,  z: 2, rotation: 0,  color: "gold",       step: 11 },
-    { id: "block_041", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 8,  z: 2, rotation: 0,  color: "gold",       step: 11 },
-    { id: "block_042", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 8,  z: 5, rotation: 0,  color: "gold",       step: 11 },
-    { id: "block_043", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 8,  z: 5, rotation: 0,  color: "gold",       step: 11 },
-    { id: "block_044", type: "1x2x2", width: 1, depth: 2, height: 2, x: 3, y: 8,  z: 5, rotation: 90, color: "white",      step: 12, print: { pattern: "clock", face: "+z" } },
-    { id: "block_045", type: "1x2x2", width: 1, depth: 2, height: 2, x: 3, y: 8,  z: 2, rotation: 90, color: "white",      step: 12, print: { pattern: "clock", face: "-z" } },
-    { id: "block_046", type: "1x2x2", width: 1, depth: 2, height: 2, x: 2, y: 8,  z: 3, rotation: 0,  color: "white",      step: 12, print: { pattern: "clock", face: "-x" } },
-    { id: "block_047", type: "1x2x2", width: 1, depth: 2, height: 2, x: 5, y: 8,  z: 3, rotation: 0,  color: "white",      step: 12, print: { pattern: "clock", face: "+x" } },
-    { id: "block_048", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 9,  z: 2, rotation: 0,  color: "gold",       step: 13 },
-    { id: "block_049", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 9,  z: 2, rotation: 0,  color: "gold",       step: 13 },
-    { id: "block_050", type: "1x1",   width: 1, depth: 1, height: 1, x: 2, y: 9,  z: 5, rotation: 0,  color: "gold",       step: 13 },
-    { id: "block_051", type: "1x1",   width: 1, depth: 1, height: 1, x: 5, y: 9,  z: 5, rotation: 0,  color: "gold",       step: 13 },
-    { id: "block_052", type: "2x6",   width: 2, depth: 6, height: 1, x: 1, y: 10, z: 5, rotation: 90, color: "dark-gray",  step: 14 },
-    { id: "block_053", type: "2x6",   width: 2, depth: 6, height: 1, x: 1, y: 10, z: 1, rotation: 90, color: "dark-gray",  step: 14 },
-    { id: "block_054", type: "2x2",   width: 2, depth: 2, height: 1, x: 1, y: 10, z: 3, rotation: 0,  color: "dark-gray",  step: 14 },
-    { id: "block_055", type: "2x2",   width: 2, depth: 2, height: 1, x: 5, y: 10, z: 3, rotation: 0,  color: "dark-gray",  step: 14 },
-    { id: "block_056", type: "1x1",   width: 1, depth: 1, height: 1, x: 1, y: 11, z: 1, rotation: 0,  color: "gold",       step: 15 },
-    { id: "block_057", type: "1x1",   width: 1, depth: 1, height: 1, x: 6, y: 11, z: 1, rotation: 0,  color: "gold",       step: 15 },
-    { id: "block_058", type: "1x1",   width: 1, depth: 1, height: 1, x: 1, y: 11, z: 6, rotation: 0,  color: "gold",       step: 15 },
-    { id: "block_059", type: "1x1",   width: 1, depth: 1, height: 1, x: 6, y: 11, z: 6, rotation: 0,  color: "gold",       step: 15 },
-    { id: "block_060", type: "2x4",   width: 2, depth: 4, height: 1, x: 2, y: 11, z: 2, rotation: 90, color: "red",        step: 16 },
-    { id: "block_061", type: "2x4",   width: 2, depth: 4, height: 1, x: 2, y: 11, z: 4, rotation: 90, color: "red",        step: 16 },
-    { id: "block_062", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 12, z: 3, rotation: 0,  color: "red",        step: 17 },
-    { id: "block_063", type: "2x2",   width: 2, depth: 2, height: 1, x: 3, y: 13, z: 3, rotation: 0,  color: "gold",       step: 17 }
-  ]
-};
-</script>
-
+<!-- Model data lives in models/*.json (library index: models/index.json).
+     Validation / conversion logic shared with the CLI lives in js/model-core.js. -->
+<script src="js/model-core.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
 (() => {
 'use strict';
+if (typeof THREE === 'undefined' || !THREE.OrbitControls || !window.BlockModel) {
+  const m = document.getElementById('vp-msg');
+  document.getElementById('vp-msg-text').innerHTML = '<b>3Dライブラリを読み込めませんでした。</b><br>ネットワーク接続を確認して再読み込みしてください。';
+  m.hidden = false;
+  return;
+}
+const { normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, STANDARD_COLORS, BRICK_SIZES } = window.BlockModel;
+const DRAFTS_KEY = 'blockmade.drafts.v1', LAST_KEY = 'blockmade.lastWork.v1';
 
 /* ======================================================================
-   1. MODEL LAYER — pure data functions (no DOM / no Three.js)
-   ====================================================================== */
-const STORAGE_KEY = 'blockmade.importedModel.v1';
-
-function toInt(v, name, where) {
-  const n = Number(v);
-  if (!Number.isFinite(n) || Math.round(n) !== n) throw new Error(`${where} の "${name}" は整数である必要があります（値: ${JSON.stringify(v)}）`);
-  return n;
-}
-
-function normalizeModel(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('JSONのトップレベルはオブジェクトである必要があります。');
-  if (!Array.isArray(raw.blocks) || raw.blocks.length === 0) throw new Error('"blocks" 配列（1個以上）が必要です。');
-  const warnings = [];
-  const colors = {};
-  for (const [k, c] of Object.entries(raw.colors || {})) {
-    if (!c || typeof c.hex !== 'string') { warnings.push(`色 "${k}" に hex がありません。`); continue; }
-    colors[k] = { name: c.name || k, hex: c.hex, opacity: c.opacity ?? 1, metalness: c.metalness ?? 0.03, roughness: c.roughness ?? 0.42 };
-  }
-  const ids = new Set();
-  const blocks = raw.blocks.map((b, i) => {
-    const where = `blocks[${i}]`;
-    if (!b || typeof b !== 'object') throw new Error(`${where} がオブジェクトではありません。`);
-    for (const k of ['id', 'width', 'depth', 'x', 'y', 'z', 'color', 'step']) {
-      if (b[k] === undefined || b[k] === null) throw new Error(`${where} に "${k}" がありません。`);
-    }
-    const id = String(b.id);
-    if (ids.has(id)) throw new Error(`ブロックID "${id}" が重複しています。`);
-    ids.add(id);
-    const width = toInt(b.width, 'width', id), depth = toInt(b.depth, 'depth', id);
-    const height = toInt(b.height ?? 1, 'height', id);
-    if (width < 1 || depth < 1 || height < 1) throw new Error(`${id}: width / depth / height は1以上にしてください。`);
-    const rotation = ((toInt(b.rotation ?? 0, 'rotation', id) % 360) + 360) % 360;
-    if (rotation % 90 !== 0) throw new Error(`${id}: rotation は 0 / 90 / 180 / 270 のいずれかです。`);
-    const swap = rotation === 90 || rotation === 270;
-    let color = String(b.color);
-    if (!colors[color]) {
-      if (/^#[0-9a-f]{3,8}$/i.test(color)) colors[color] = { name: color, hex: color, opacity: 1, metalness: 0.03, roughness: 0.42 };
-      else { warnings.push(`${id}: 色 "${color}" が colors に定義されていないため仮の色で表示します。`); colors[color] = { name: color, hex: '#ff4fd8', opacity: 1, metalness: 0, roughness: 0.5 }; }
-    }
-    const numMatch = id.match(/(\d+)\s*$/);
-    return {
-      id, type: b.type ? String(b.type) : `${width}x${depth}${height !== 1 ? 'x' + height : ''}`,
-      width, depth, height,
-      x: toInt(b.x, 'x', id), y: toInt(b.y, 'y', id), z: toInt(b.z, 'z', id),
-      rotation, color, step: toInt(b.step, 'step', id),
-      print: b.print && typeof b.print === 'object' ? { pattern: String(b.print.pattern || ''), face: String(b.print.face || '+z') } : null,
-      sx: swap ? depth : width, sz: swap ? width : depth, h: height,
-      num: numMatch ? parseInt(numMatch[1], 10) : i + 1, index: i
-    };
-  });
-  const metaByStep = new Map();
-  for (const s of (Array.isArray(raw.steps) ? raw.steps : [])) if (s && s.step !== undefined) metaByStep.set(Number(s.step), s);
-  const stepNums = [...new Set(blocks.map(b => b.step))].sort((a, b) => a - b);
-  const steps = stepNums.map(n => {
-    const m = metaByStep.get(n) || {};
-    return { step: n, title: m.title || `Step ${n}`, description: m.description || '' };
-  });
-  for (const n of metaByStep.keys()) if (!stepNums.includes(n)) warnings.push(`Step ${n} には追加ブロックがありません。`);
-  const layers = Math.max(...blocks.map(b => b.y + b.h));
-  const minX = Math.min(...blocks.map(b => b.x)), maxX = Math.max(...blocks.map(b => b.x + b.sx));
-  const minZ = Math.min(...blocks.map(b => b.z)), maxZ = Math.max(...blocks.map(b => b.z + b.sz));
-  return {
-    format: 'blockmade.model', version: 1,
-    name: String(raw.name || 'Untitled'), nameEn: raw.nameEn ? String(raw.nameEn) : '',
-    description: String(raw.description || ''),
-    colors, steps, blocks, warnings, layers,
-    bounds: { minX, maxX, minZ, maxZ },
-    byId: new Map(blocks.map(b => [b.id, b]))
-  };
-}
-
-const overlapXZ = (a, b) => a.x < b.x + b.sx && b.x < a.x + a.sx && a.z < b.z + b.sz && b.z < a.z + a.sz;
-const overlapY = (a, b) => a.y < b.y + b.h && b.y < a.y + a.h;
-
-/** Structure checks: connection, support, collision, build order. */
-function validateModel(m) {
-  const B = m.blocks, n = B.length;
-  const above = new Map(B.map(b => [b.id, []])), below = new Map(B.map(b => [b.id, []]));
-  const collisions = [];
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-    const a = B[i], b = B[j];
-    if (!overlapXZ(a, b)) continue;
-    if (overlapY(a, b)) { collisions.push([a.id, b.id]); continue; }
-    if (a.y === b.y + b.h) { below.get(a.id).push(b.id); above.get(b.id).push(a.id); }
-    else if (b.y === a.y + a.h) { below.get(b.id).push(a.id); above.get(a.id).push(b.id); }
-  }
-  const neighbours = id => [...above.get(id), ...below.get(id)];
-
-  // Connected: one component in the stud-connection graph
-  const seen = new Set(), groups = [];
-  for (const b of B) {
-    if (seen.has(b.id)) continue;
-    const comp = [], q = [b.id]; seen.add(b.id);
-    while (q.length) { const id = q.pop(); comp.push(id); for (const nb of neighbours(id)) if (!seen.has(nb)) { seen.add(nb); q.push(nb); } }
-    groups.push(comp);
-  }
-  groups.sort((a, b) => b.length - a.length);
-
-  // Supported: every block reaches the ground (y = 0) through connections
-  const grounded = new Set(), q = [];
-  for (const b of B) if (b.y === 0) { grounded.add(b.id); q.push(b.id); }
-  while (q.length) { const id = q.pop(); for (const nb of neighbours(id)) if (!grounded.has(nb)) { grounded.add(nb); q.push(nb); } }
-  const floating = B.filter(b => !grounded.has(b.id)).map(b => b.id);
-  const belowGround = B.filter(b => b.y < 0).map(b => b.id);
-
-  // Build order: each block must attach to the ground or an already-placed block,
-  // and must not be wedged between blocks that are already placed above and below.
-  const placed = new Set(), orderIssues = [];
-  for (const s of m.steps) {
-    let pending = B.filter(b => b.step === s.step);
-    let progress = true;
-    while (pending.length && progress) {
-      progress = false;
-      const next = [];
-      for (const b of pending) {
-        const pb = below.get(b.id).filter(id => placed.has(id));
-        const pa = above.get(b.id).filter(id => placed.has(id));
-        if (b.y === 0 || pb.length || pa.length) {
-          if ((b.y === 0 || pb.length) && pa.length) orderIssues.push({ step: s.step, id: b.id, msg: `上下がすでに組まれていて差し込めません（上: ${pa.join(', ')}）` });
-          for (const c of B) if (c.step < s.step && placed.has(c.id) && overlapXZ(b, c) && overlapY(b, c)) orderIssues.push({ step: s.step, id: b.id, msg: `配置済みの ${c.id} と重なっています` });
-          placed.add(b.id); progress = true;
-        } else next.push(b);
-      }
-      pending = next;
-    }
-    for (const b of pending) { orderIssues.push({ step: s.step, id: b.id, msg: 'この時点で接続先がなく、宙に浮きます' }); placed.add(b.id); }
-  }
-
-  return {
-    connected: { ok: groups.length === 1, groups },
-    supported: { ok: floating.length === 0 && belowGround.length === 0, floating, belowGround },
-    collisions: { ok: collisions.length === 0, pairs: collisions },
-    order: { ok: orderIssues.length === 0, issues: orderIssues },
-    above, below,
-    get allOk() { return this.connected.ok && this.supported.ok && this.collisions.ok && this.order.ok; },
-    get failCount() { return [this.connected, this.supported, this.collisions, this.order].filter(c => !c.ok).length; }
-  };
-}
-
-function cleanBlock(b) {
-  const o = { id: b.id, type: b.type, width: b.width, depth: b.depth, height: b.height, x: b.x, y: b.y, z: b.z, rotation: b.rotation, color: b.color, step: b.step };
-  if (b.print) o.print = b.print;
-  return o;
-}
-function modelToJSON(m) {
-  const colors = {};
-  for (const [k, c] of Object.entries(m.colors)) {
-    const o = { name: c.name, hex: c.hex };
-    if (c.opacity !== 1) o.opacity = c.opacity;
-    if (c.metalness !== 0.03) o.metalness = c.metalness;
-    if (c.roughness !== 0.42) o.roughness = c.roughness;
-    colors[k] = o;
-  }
-  const out = { format: 'blockmade.model', version: 1, name: m.name, nameEn: m.nameEn, description: m.description, colors, steps: m.steps, blocks: '__BLOCKS__' };
-  const lines = m.blocks.map(b => '    ' + JSON.stringify(cleanBlock(b))).join(',\n');
-  return JSON.stringify(out, null, 2).replace('"__BLOCKS__"', '[\n' + lines + '\n  ]');
-}
-
-/* ======================================================================
-   2. HELPERS
+   1. HELPERS
    ====================================================================== */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -578,33 +413,36 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const colorOf = key => state.model.colors[key] || { name: key, hex: '#ff4fd8', opacity: 1 };
 const colorName = key => colorOf(key).name;
 const layerOf = b => b.h > 1 ? `${b.y + 1}–${b.y + b.h}` : `${b.y + 1}`;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
 
 function glyph(w, d, hex) {
-  // top view of the brick: long side horizontal
-  const cols = Math.max(w, d), rows = Math.min(w, d), s = 7;
+  const cols = Math.max(w, d), rows = Math.min(w, d), s = Math.min(7, Math.floor(58 / cols));
   const W = cols * s + 2, H = rows * s + 2;
   let studs = '';
-  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="2.2" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="${(s * 0.31).toFixed(2)}" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
   return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>${studs}</svg>`;
 }
 const swatch = key => `<span class="sw" style="background:${esc(colorOf(key).hex)}"></span>`;
 
 /* ======================================================================
-   3. APP STATE
+   2. APP STATE
    ====================================================================== */
 const state = {
-  model: null, check: null,
-  mode: 'complete',           // 'complete' | 'build'
-  stepIdx: 0, exploded: false,
-  layer: 0, layerOnly: false, // 0 = all layers
+  model: null, check: null, workKey: null,
+  mode: 'complete', stepIdx: 0, exploded: false,
+  layer: 0, layerOnly: false,
   selectedId: null, hoverId: null,
   partsView: 'type-color', partsKey: null,
-  tab: 'parts'
+  tab: 'parts', playing: false
 };
+const library = { repo: [], drafts: store.get(DRAFTS_KEY, []), rawCache: new Map() };
 const curStep = () => state.model.steps[state.stepIdx];
 
 /* ======================================================================
-   4. 3D SCENE (Three.js)
+   3. 3D SCENE (Three.js)
    ====================================================================== */
 const Scene = (() => {
   const H = 1.2, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;
@@ -615,6 +453,24 @@ const Scene = (() => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+  function addLights(scene, shadows) {
+    scene.add(new THREE.HemisphereLight(0xe4ecff, 0x20242b, 0.72));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+    sun.position.set(16, 30, 20);
+    if (shadows) {
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 110 });
+      sun.shadow.bias = -0.0004;
+      sun.shadow.normalBias = 0.02;
+    }
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xa9c1ff, 0.28);
+    fill.position.set(-18, 10, -14);
+    scene.add(fill);
+  }
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 600);
@@ -624,32 +480,19 @@ const Scene = (() => {
   controls.dampingFactor = 0.1;
   controls.screenSpacePanning = true;
   controls.minDistance = 3;
-  controls.maxDistance = 220;
+  controls.maxDistance = 240;
   controls.maxPolarAngle = Math.PI / 2 + 0.12;
-
-  scene.add(new THREE.HemisphereLight(0xe4ecff, 0x20242b, 0.72));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.85);
-  sun.position.set(16, 30, 20);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 100 });
-  sun.shadow.bias = -0.0004;
-  sun.shadow.normalBias = 0.02;
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xa9c1ff, 0.28);
-  fill.position.set(-18, 10, -14);
-  scene.add(fill);
+  addLights(scene, true);
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.32 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
-  const grid = new THREE.GridHelper(48, 48, 0x46505e, 0x262d37);
+  const grid = new THREE.GridHelper(64, 64, 0x46505e, 0x262d37);
   grid.position.y = 0.002;
   grid.material.transparent = true;
   grid.material.opacity = 0.85;
   scene.add(grid);
-  // "front" marker on the ground (+Z side)
   const frontMark = new THREE.Mesh(new THREE.CircleGeometry(0.55, 3), new THREE.MeshBasicMaterial({ color: 0xf2b544, transparent: true, opacity: 0.55 }));
   frontMark.rotation.x = -Math.PI / 2;
   frontMark.rotation.z = -Math.PI / 2;
@@ -670,7 +513,7 @@ const Scene = (() => {
   }
 
   // --- printed decorations (clock face) ---
-  const printTextures = [];
+  const liveClocks = [];
   function drawClock(ctx, w, h, bg) {
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
     const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.41;
@@ -691,37 +534,24 @@ const Scene = (() => {
     hand(mi / 60 * Math.PI * 2, r * 0.74, r * 0.055);
     ctx.beginPath(); ctx.arc(cx, cy, r * 0.08, 0, Math.PI * 2); ctx.fillStyle = '#c99532'; ctx.fill();
   }
-  function makePrintTexture(pattern, fw, fh, bg) {
+  function makePrintTexture(pattern, fw, fh, bg, live) {
     if (pattern !== 'clock') return null;
     const w = 256, h = Math.round(256 * fh / fw);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const ctx = c.getContext('2d');
     drawClock(ctx, w, h, bg);
     const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const entry = { tex, redraw: () => { drawClock(ctx, w, h, bg); tex.needsUpdate = true; } };
-    printTextures.push(entry);
+    tex.anisotropy = maxAniso;
+    if (live) liveClocks.push(() => { drawClock(ctx, w, h, bg); tex.needsUpdate = true; });
     return tex;
   }
-  setInterval(() => printTextures.forEach(p => p.redraw()), 30000);
+  setInterval(() => liveClocks.forEach(f => f()), 30000);
   const FACE_INDEX = { '+x': 0, '-x': 1, '+y': 2, '-y': 3, '+z': 4, '-z': 5 };
 
-  let recs = [], recById = new Map(), pickables = [];
-  let center = { x: 0, z: 0 };
-  let explodeT = 0;
-  const cageMat = new THREE.LineBasicMaterial({ color: SELECT, depthTest: false, transparent: true, opacity: 0.95 });
-  let cage = null;
-
-  function disposeAll() {
-    for (const r of recs) { r.mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); r.line.material.dispose(); }
-    root.clear(); recs = []; recById.clear(); pickables = []; printTextures.length = 0;
-    if (cage) { cage.geometry.dispose(); cage = null; }
-  }
-
-  function build(m) {
-    disposeAll();
-    center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
-    frontMark.position.set(0, 0.004, (m.bounds.maxZ - center.z) + 1.6);
+  /** Build a Three.js group for a normalized model (used by the main view and thumbnails). */
+  function makeModelGroup(m, { shadows = true, live = true } = {}) {
+    const group = new THREE.Group(), recs = [];
+    const center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
     for (const b of m.blocks) {
       const c = m.colors[b.color];
       const base = { color: new THREE.Color(c.hex), roughness: c.roughness, metalness: c.metalness, transparent: c.opacity < 1, opacity: c.opacity, depthWrite: c.opacity >= 1 };
@@ -731,7 +561,7 @@ const Scene = (() => {
       const mats = [mat];
       if (b.print && FACE_INDEX[b.print.face] !== undefined) {
         const f = b.print.face, fw = f.includes('x') ? b.sz : b.sx, fh = b.h * H;
-        const tex = makePrintTexture(b.print.pattern, fw, fh, c.hex);
+        const tex = makePrintTexture(b.print.pattern, fw, fh, c.hex, live);
         if (tex) {
           const pm = new THREE.MeshStandardMaterial({ ...base, color: 0xffffff, map: tex });
           meshMat = [mat, mat, mat, mat, mat, mat];
@@ -739,34 +569,52 @@ const Scene = (() => {
           mats.push(pm);
         }
       }
-      const group = new THREE.Group();
+      const bg = new THREE.Group();
       const mesh = new THREE.Mesh(g.box, meshMat);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = mesh.receiveShadow = shadows;
       mesh.userData.blockId = b.id;
-      group.add(mesh);
+      bg.add(mesh);
       const studs = [];
       for (let i = 0; i < b.sx; i++) for (let k = 0; k < b.sz; k++) {
         const s = new THREE.Mesh(studGeo, mat);
         s.position.set(i - b.sx / 2 + 0.5, b.h * H / 2 + STUD_H / 2 - GAP / 2, k - b.sz / 2 + 0.5);
-        s.castShadow = true;
+        s.castShadow = shadows;
         s.userData.blockId = b.id;
-        group.add(s); studs.push(s);
+        bg.add(s); studs.push(s);
       }
       const line = new THREE.LineSegments(g.edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
       line.raycast = () => {};
-      group.add(line);
-      const px = b.x + b.sx / 2 - center.x, pz = b.z + b.sz / 2 - center.z, py = b.y * H + b.h * H / 2;
-      group.position.set(px, py, pz);
-      root.add(group);
-      const rec = { b, group, mesh, studs, line, mat, mats, baseY: py, baseOpacity: c.opacity, st: {}, dropStart: null };
-      recs.push(rec); recById.set(b.id, rec);
+      bg.add(line);
+      const py = b.y * H + b.h * H / 2;
+      bg.position.set(b.x + b.sx / 2 - center.x, py, b.z + b.sz / 2 - center.z);
+      group.add(bg);
+      recs.push({ b, group: bg, mesh, studs, line, mat, mats, baseY: py, baseOpacity: c.opacity, st: {}, dropStart: null });
     }
+    return { group, recs, center };
+  }
+  function disposeGroup(recs) {
+    for (const r of recs) { r.mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); r.line.material.dispose(); }
+  }
+
+  let recs = [], recById = new Map(), pickables = [];
+  let explodeT = 0;
+  const cageMat = new THREE.LineBasicMaterial({ color: SELECT, depthTest: false, transparent: true, opacity: 0.95 });
+  let cage = null;
+
+  function build(m) {
+    disposeGroup(recs);
+    root.clear(); recById.clear(); pickables = []; liveClocks.length = 0;
+    if (cage) { cage.geometry.dispose(); cage = null; }
+    const made = makeModelGroup(m, { shadows: true, live: true });
+    recs = made.recs;
+    root.add(made.group);
+    for (const r of recs) recById.set(r.b.id, r);
+    frontMark.position.set(0, 0.004, (m.bounds.maxZ - made.center.z) + 1.6);
     explodeT = state.exploded ? 1 : 0;
   }
 
-  /** Recompute visibility / look of every block from app state. */
   function apply(opts = {}) {
-    const m = state.model, step = curStep().step, L = state.layer;
+    const step = curStep().step, L = state.layer;
     pickables = [];
     const now = performance.now();
     let k = 0;
@@ -803,13 +651,11 @@ const Scene = (() => {
       else { lm.color.copy(BLACK); lm.opacity = r.baseOpacity < 1 ? 0.18 : 0.3; }
       if (vis && !ghost) pickables.push(r.mesh, ...r.studs);
     }
-    // selection cage (visible through other blocks)
     if (cage) { cage.parent && cage.parent.remove(cage); cage.geometry.dispose(); cage = null; }
     const sr = state.selectedId && recById.get(state.selectedId);
     if (sr && sr.st.vis) {
       const b = sr.b;
-      const eg = new THREE.EdgesGeometry(new THREE.BoxGeometry(b.sx + 0.1, b.h * H + 0.1, b.sz + 0.1));
-      cage = new THREE.LineSegments(eg, cageMat);
+      cage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(b.sx + 0.1, b.h * H + 0.1, b.sz + 0.1)), cageMat);
       cage.renderOrder = 999;
       cage.raycast = () => {};
       sr.group.add(cage);
@@ -822,11 +668,11 @@ const Scene = (() => {
     front: [0, 0.08, 1], back: [0, 0.08, -1], left: [-1, 0.08, 0], right: [1, 0.08, 0],
     top: [0, 1, 0.0008], iso: [0.95, 0.78, 1.3]
   };
-  function visibleBounds(expl) {
+  function boundsOf(list, expl) {
     const box = new THREE.Box3();
     let any = false;
-    for (const r of recs) {
-      if (!r.st.vis) continue;
+    for (const r of list) {
+      if (r.st && r.st.vis === false) continue;
       const b = r.b;
       const y = r.baseY + expl * b.y * EXPLODE;
       const hx = b.sx / 2, hz = b.sz / 2, hy = b.h * H / 2;
@@ -837,17 +683,20 @@ const Scene = (() => {
     if (!any) box.set(new THREE.Vector3(-4, 0, -4), new THREE.Vector3(4, 2, 4));
     return box;
   }
-  function flyTo(dirArr, opt = {}) {
-    const dir = dirArr ? new THREE.Vector3(...dirArr).normalize() : camera.position.clone().sub(controls.target).normalize();
-    const box = opt.box || visibleBounds(state.exploded ? 1 : 0);
+  function fitPose(cam, box, dir, pad) {
     const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, 1.5);
-    const vfov = camera.fov * Math.PI / 180;
-    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-    const dist = radius / Math.sin(Math.min(vfov, hfov) / 2) * (opt.pad || 1.16);
-    const toPos = c.clone().add(dir.multiplyScalar(dist));
-    if (opt.instant || reduced) { camera.position.copy(toPos); controls.target.copy(c); controls.update(); tween = null; return; }
-    tween = { fp: camera.position.clone(), tp: toPos, ft: controls.target.clone(), tt: c, t0: performance.now(), dur: 650 };
+    const vfov = cam.fov * Math.PI / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * cam.aspect);
+    const dist = radius / Math.sin(Math.min(vfov, hfov) / 2) * pad;
+    return { pos: c.clone().add(dir.clone().normalize().multiplyScalar(dist)), target: c };
+  }
+  function flyTo(dirArr, opt = {}) {
+    const dir = dirArr ? new THREE.Vector3(...dirArr) : camera.position.clone().sub(controls.target);
+    const box = opt.box || boundsOf(recs, state.exploded ? 1 : 0);
+    const { pos, target } = fitPose(camera, box, dir, opt.pad || 1.16);
+    if (opt.instant || reduced) { camera.position.copy(pos); controls.target.copy(target); controls.update(); tween = null; return; }
+    tween = { fp: camera.position.clone(), tp: pos, ft: controls.target.clone(), tt: target, t0: performance.now(), dur: 650 };
   }
   function focusBlock(id) {
     const r = recById.get(id); if (!r) return;
@@ -856,7 +705,29 @@ const Scene = (() => {
     flyTo(null, { box, pad: 1.1 });
   }
 
-  // --- picking / hover ---
+  // --- thumbnails (separate small renderer) ---
+  let thumbR = null, thumbScene = null, thumbCam = null;
+  function thumbnail(m) {
+    if (!thumbR) {
+      thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      thumbR.setPixelRatio(1);
+      thumbR.setSize(360, 270, false);
+      thumbScene = new THREE.Scene();
+      addLights(thumbScene, false);
+      thumbCam = new THREE.PerspectiveCamera(34, 360 / 270, 0.1, 600);
+    }
+    const made = makeModelGroup(m, { shadows: false, live: false });
+    thumbScene.add(made.group);
+    const { pos, target } = fitPose(thumbCam, boundsOf(made.recs, 0), new THREE.Vector3(...VIEWS.iso), 1.02);
+    thumbCam.position.copy(pos); thumbCam.lookAt(target);
+    thumbR.render(thumbScene, thumbCam);
+    const url = thumbR.domElement.toDataURL('image/png');
+    thumbScene.remove(made.group);
+    disposeGroup(made.recs);
+    return url;
+  }
+
+  // --- picking ---
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   function pick(ev) {
     const rect = canvas.getBoundingClientRect();
@@ -866,7 +737,6 @@ const Scene = (() => {
     return hit ? hit.object.userData.blockId : null;
   }
 
-  // --- resize ---
   function resize() {
     const w = viewEl.clientWidth, h = viewEl.clientHeight;
     if (!w || !h) return;
@@ -877,7 +747,6 @@ const Scene = (() => {
   new ResizeObserver(resize).observe(viewEl);
   resize();
 
-  // --- frame loop ---
   const ease = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const easeOutBack = t => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
   function tick(now) {
@@ -913,11 +782,11 @@ const Scene = (() => {
   }
   requestAnimationFrame(tick);
 
-  return { build, apply, flyTo, focusBlock, pick, VIEWS, canvas, controls, get explodeT() { return explodeT; } };
+  return { build, apply, flyTo, focusBlock, pick, thumbnail, VIEWS, canvas };
 })();
 
 /* ======================================================================
-   5. UI
+   4. UI RENDERING
    ====================================================================== */
 function partKeyOf(b, view) {
   switch (view) {
@@ -938,9 +807,18 @@ function renderAll() {
   renderHeader(); renderSteps(); renderParts(); renderChecks(); renderSelected(); renderLayerBar(); renderChips(); renderTabs();
 }
 
+function originOf(key) {
+  if (!key) return { cls: '', label: '' };
+  if (key.startsWith('repo:')) return { cls: 'repo', label: 'ライブラリ' };
+  const d = library.drafts.find(x => 'draft:' + x.id === key);
+  return d && d.source === 'ai' ? { cls: 'ai', label: 'AI生成・下書き' } : { cls: '', label: '下書き' };
+}
+
 function renderHeader() {
   const m = state.model;
-  $('#model-name').textContent = m.nameEn ? `${m.name} · ${m.nameEn}` : m.name;
+  $('#model-name').textContent = m.name;
+  $('#lib-count').textContent = `${library.repo.length + library.drafts.length} 作品`;
+  document.title = `BlockMade ${m.name}`;
   $('#btn-complete').setAttribute('aria-pressed', state.mode === 'complete');
   $('#btn-build').setAttribute('aria-pressed', state.mode === 'build');
   $('#btn-explode').setAttribute('aria-pressed', state.exploded);
@@ -956,6 +834,7 @@ function renderChips() {
   let html = state.mode === 'complete'
     ? `<span class="chip"><b>完成形</b> · ${m.blocks.length} blocks</span>`
     : `<span class="chip accent"><b style="color:inherit">Step ${state.stepIdx + 1}</b> / ${m.steps.length}</span><span class="chip">${placed} / ${m.blocks.length} blocks</span>`;
+  if (state.playing) html += `<span class="chip accent">▶ 自動再生中</span>`;
   if (state.exploded) html += `<span class="chip accent">分解表示</span>`;
   if (state.layer) html += `<span class="chip">Layer <b>${state.layer}</b>${state.layerOnly ? ' のみ' : ' まで'}</span>`;
   el.innerHTML = html;
@@ -963,27 +842,32 @@ function renderChips() {
 
 function renderSteps() {
   const m = state.model, i = state.stepIdx, s = curStep(), el = $('#steps-body');
-  const prev = $('#btn-prev'), next = $('#btn-next');
+  const prev = $('#btn-prev'), next = $('#btn-next'), play = $('#btn-play');
   $('#step-chips').querySelectorAll('button').forEach((btn, idx) => {
     btn.className = state.mode === 'build' ? (idx === i ? 'cur' : idx < i ? 'done' : '') : '';
   });
+  play.setAttribute('aria-pressed', state.playing);
+  play.textContent = state.playing ? '❚❚ 停止' : '▶ 再生';
   if (state.mode === 'complete') {
     $('#steps-eyebrow').textContent = 'Completed Model';
     const types = new Set(m.blocks.map(b => b.type)).size;
     const w = m.bounds.maxX - m.bounds.minX, d = m.bounds.maxZ - m.bounds.minZ;
+    const o = originOf(state.workKey);
     el.innerHTML = `<div class="overview">
+      <div class="btnrow">${o.label ? `<span class="origin ${o.cls}">${o.label}</span>` : ''}${m.author ? `<span class="origin">作: ${esc(m.author)}</span>` : ''}</div>
       <h2>${esc(m.name)}</h2>
+      ${m.nameEn ? `<div style="color:var(--faint);font-size:12.5px;margin:-4px 0 6px">${esc(m.nameEn)}</div>` : ''}
       <p>${esc(m.description)}</p>
+      ${m.prompt ? `<p style="font-size:12.5px;color:var(--muted)">依頼文: 「${esc(m.prompt)}」</p>` : ''}
       <dl class="stats">
         <div><dt>ブロック</dt><dd>${m.blocks.length}</dd></div>
         <div><dt>Step</dt><dd>${m.steps.length}</dd></div>
         <div><dt>高さ(段)</dt><dd>${m.layers}</dd></div>
         <div><dt>底面</dt><dd>${w}×${d}</dd></div>
       </dl>
-      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色。「次へ」で Step 1 から組み立て手順を再生します。</p>
+      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色。「▶ 再生」で Step 1 から自動で組み上げます。</p>
     </div>`;
     prev.disabled = true;
-    next.disabled = false;
     next.textContent = state.stepIdx > 0 ? `Step ${state.stepIdx + 1} から再開 →` : 'Step 1 から組み立てる →';
     return;
   }
@@ -1001,13 +885,11 @@ function renderSteps() {
     <div class="progress" aria-hidden="true"><span style="width:${(placed / m.blocks.length * 100).toFixed(1)}%"></span></div>
     <div class="progress-label"><span>配置済み</span><span class="mono">${placed} / ${m.blocks.length}</span></div>`;
   prev.disabled = i === 0;
-  next.disabled = false;
   next.textContent = i === m.steps.length - 1 ? '完成形を見る ✓' : '次へ →';
 }
 
 function buildStepChips() {
-  const el = $('#step-chips');
-  el.innerHTML = state.model.steps.map((s, idx) => `<button data-idx="${idx}" title="Step ${idx + 1}: ${esc(s.title)}">${idx + 1}</button>`).join('');
+  $('#step-chips').innerHTML = state.model.steps.map((s, idx) => `<button data-idx="${idx}" title="Step ${idx + 1}: ${esc(s.title)}">${idx + 1}</button>`).join('');
 }
 
 function renderParts() {
@@ -1129,15 +1011,19 @@ function renderTabs() {
   }
 }
 
-/* ---------- actions ---------- */
-function refresh(opts) { Scene.apply(opts); renderAll(); }
+/* ======================================================================
+   5. ACTIONS
+   ====================================================================== */
+function refresh(opts) { if (!state.model) return; Scene.apply(opts); renderAll(); }
 
 function setMode(mode) {
+  if (mode === 'complete') stopPlay();
   if (state.mode === mode) return;
   state.mode = mode;
   refresh({ animateNew: mode === 'build' });
 }
 function goStep(idx, animate = true) {
+  if (!state.model) return;
   const n = state.model.steps.length;
   idx = Math.max(0, Math.min(n - 1, idx));
   const forward = idx > state.stepIdx || state.mode !== 'build';
@@ -1146,17 +1032,41 @@ function goStep(idx, animate = true) {
   refresh({ animateNew: animate && forward });
 }
 function next() {
+  if (!state.model) return;
   if (state.mode === 'complete') return goStep(state.stepIdx);
   if (state.stepIdx >= state.model.steps.length - 1) { setMode('complete'); return; }
   goStep(state.stepIdx + 1);
 }
-function prev() { if (state.mode === 'build') goStep(state.stepIdx - 1); }
-function setExploded(on) {
-  state.exploded = on;
-  refresh();
-  Scene.flyTo(null);
+function prev() { stopPlay(); if (state.mode === 'build') goStep(state.stepIdx - 1); }
+
+// auto-play: builds the model step by step from Step 1
+let playTimer = 0;
+function startPlay() {
+  if (!state.model) return;
+  stopPlay();
+  state.playing = true;
+  state.layer = 0; state.layerOnly = false;
+  state.stepIdx = 0; state.mode = 'build';
+  refresh({ animateNew: true });
+  const tickPlay = () => {
+    if (!state.playing) return;
+    const added = state.model.blocks.filter(b => b.step === curStep().step).length;
+    const wait = reduced ? 900 : Math.min(2600, 800 + added * 90);
+    playTimer = setTimeout(() => {
+      if (!state.playing) return;
+      if (state.stepIdx >= state.model.steps.length - 1) { state.playing = false; state.mode = 'complete'; refresh(); return; }
+      goStep(state.stepIdx + 1);
+      tickPlay();
+    }, wait);
+  };
+  tickPlay();
 }
+function stopPlay() { if (state.playing && state.model) { state.playing = false; clearTimeout(playTimer); renderSteps(); renderChips(); } }
+
+function setExploded(on) { state.exploded = on; refresh(); Scene.flyTo(null); }
 function setLayer(L) {
+  if (!state.model) return;
+  stopPlay();
   state.layer = Math.max(0, Math.min(state.model.layers, L));
   if (!state.layer) state.layerOnly = false;
   refresh();
@@ -1172,28 +1082,311 @@ function select(id, { reveal = false, fromView = false } = {}) {
   refresh();
 }
 
-function loadModel(raw, { persist = false, fit = true } = {}) {
+function showModel(raw, key) {
   const m = normalizeModel(raw);
+  stopPlay();
   state.model = m;
   state.check = validateModel(m);
+  state.workKey = key;
   state.mode = 'complete'; state.stepIdx = 0; state.layer = 0; state.layerOnly = false;
   state.selectedId = null; state.hoverId = null; state.partsKey = null;
   Scene.build(m);
   buildStepChips();
   refresh();
-  if (fit) Scene.flyTo(Scene.VIEWS.iso, { instant: true });
-  if (persist) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(raw)); } catch (e) { /* storage unavailable */ } }
+  Scene.flyTo(Scene.VIEWS.iso, { instant: true });
+  if (key) store.set(LAST_KEY, key);
+  $('#vp-msg').hidden = true;
   return m;
 }
 
-/* ---------- events ---------- */
+/* ======================================================================
+   6. LIBRARY (repo works from models/, drafts in this browser)
+   ====================================================================== */
+async function fetchJSON(url) {
+  const r = await fetch(url, { cache: 'no-cache' });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  return r.json();
+}
+async function rawForKey(key) {
+  if (library.rawCache.has(key)) return library.rawCache.get(key);
+  let raw;
+  if (key.startsWith('repo:')) {
+    const w = library.repo.find(x => 'repo:' + x.id === key);
+    if (!w) throw new Error('作品が見つかりません。');
+    raw = await fetchJSON(w.file);
+  } else {
+    const d = library.drafts.find(x => 'draft:' + x.id === key);
+    if (!d) throw new Error('下書きが見つかりません。');
+    raw = d.raw;
+  }
+  library.rawCache.set(key, raw);
+  return raw;
+}
+async function openWork(key) {
+  const raw = await rawForKey(key);
+  showModel(raw, key);
+}
+function saveDrafts() {
+  if (!store.set(DRAFTS_KEY, library.drafts)) setStatus('#lib-status', 'ブラウザに保存できませんでした（保存領域が使えないか一杯です）。JSONを書き出して保管してください。', 'bad');
+}
+function addDraft(raw, source) {
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  library.drafts.unshift({ id, source, savedAt: new Date().toISOString(), raw });
+  saveDrafts();
+  return 'draft:' + id;
+}
+function setStatus(sel, msg, kind = '') { const el = $(sel); el.textContent = msg; el.className = 'status ' + kind; }
+
+const thumbCache = new Map();
+function thumbFor(key, raw) {
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  let url = '';
+  try { url = Scene.thumbnail(normalizeModel(raw)); } catch (e) { url = ''; }
+  thumbCache.set(key, url);
+  return url;
+}
+function cardHTML(key, meta, extraActs = '') {
+  const cur = key === state.workKey;
+  return `<div class="wcard${cur ? ' cur' : ''}" data-key="${esc(key)}">
+    <button class="thumb" data-open="${esc(key)}" aria-label="${esc(meta.name)} を開く"><span>読み込み中…</span></button>
+    <div class="info">
+      <div class="t">${esc(meta.name)}${cur ? ' <span class="origin ai" style="font-size:10.5px;padding:0 6px">表示中</span>' : ''}</div>
+      ${meta.nameEn ? `<div class="e">${esc(meta.nameEn)}</div>` : ''}
+      <div class="m">${meta.blocks} blocks · ${meta.steps} steps${meta.size ? ' · ' + esc(meta.size) : ''}</div>
+      <div class="acts"><button class="btn sm" data-open="${esc(key)}">開く</button>${extraActs}</div>
+    </div></div>`;
+}
+function metaOf(raw) {
+  const m = normalizeModel(raw);
+  return { name: m.name, nameEn: m.nameEn, blocks: m.blocks.length, steps: m.steps.length, size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${m.layers}` };
+}
+function renderLibrary() {
+  $('#lib-repo-count').textContent = `${library.repo.length} 作品`;
+  $('#lib-draft-count').textContent = `${library.drafts.length} 作品`;
+  $('#lib-repo').innerHTML = library.repo.length
+    ? library.repo.map(w => cardHTML('repo:' + w.id, w)).join('')
+    : `<p class="empty">ライブラリを読み込めませんでした。</p>`;
+  const newCard = `<button class="newcard" id="lib-new"><b>✦ AIで新しい作品を作る</b><span>作りたいものを文章で伝えると、設計して下書きに追加します</span></button>`;
+  $('#lib-drafts').innerHTML = newCard + library.drafts.map(d => {
+    let meta; try { meta = metaOf(d.raw); } catch (e) { meta = { name: '(読めない下書き)', blocks: 0, steps: 0 }; }
+    const key = 'draft:' + d.id;
+    return cardHTML(key, meta, `<button class="btn sm" data-copyreg="${esc(key)}">登録用にコピー</button><button class="btn sm danger" data-del="${esc(key)}">削除</button>`);
+  }).join('');
+  // thumbnails, one per frame so the dialog opens immediately
+  const cards = [...document.querySelectorAll('#lib-modal .wcard')];
+  let i = 0;
+  const step = async () => {
+    if (i >= cards.length || $('#lib-modal').hidden) return;
+    const card = cards[i++], key = card.dataset.key;
+    try {
+      const raw = await rawForKey(key);
+      const url = thumbFor(key, raw);
+      const t = card.querySelector('.thumb');
+      if (url && t) t.innerHTML = `<img alt="" src="${url}">`;
+    } catch (e) { const t = card.querySelector('.thumb'); if (t) t.innerHTML = '<span>表示できません</span>'; }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function openLibrary() { setStatus('#lib-status', ''); $('#lib-modal').hidden = false; renderLibrary(); }
+
+$('#lib-modal').addEventListener('click', async e => {
+  if (e.target.closest('#lib-new')) { closeModals(); openGenerate(); return; }
+  const o = e.target.closest('[data-open]');
+  if (o) {
+    try { await openWork(o.dataset.open); closeModals(); }
+    catch (err) { setStatus('#lib-status', '開けませんでした: ' + err.message, 'bad'); }
+    return;
+  }
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    if (del.dataset.confirm !== '1') { del.dataset.confirm = '1'; del.textContent = '本当に削除'; setTimeout(() => { if (del.isConnected) { del.dataset.confirm = ''; del.textContent = '削除'; } }, 3000); return; }
+    const key = del.dataset.del;
+    library.drafts = library.drafts.filter(d => 'draft:' + d.id !== key);
+    library.rawCache.delete(key); thumbCache.delete(key);
+    saveDrafts();
+    if (state.workKey === key && library.repo[0]) await openWork('repo:' + library.repo[0].id);
+    renderLibrary(); renderHeader();
+    setStatus('#lib-status', '下書きを削除しました。', 'ok');
+    return;
+  }
+  const cp = e.target.closest('[data-copyreg]');
+  if (cp) {
+    const raw = await rawForKey(cp.dataset.copyreg);
+    const text = 'BlockMade のライブラリにこの作品を登録してください。\n```json\n' + modelToJSON(normalizeModel(raw)) + '```\n';
+    copyText(text, () => setStatus('#lib-status', 'コピーしました。Claude とのチャットに貼り付けてください。', 'ok'),
+      () => setStatus('#lib-status', 'コピーできませんでした。「JSONを書き出す」から手動でコピーしてください。', 'bad'));
+  }
+});
+
+function copyText(text, ok, fail) {
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fail);
+  else fail();
+}
+
+/* ======================================================================
+   7. AI GENERATION (claude.use("sample"))
+   ====================================================================== */
+let sampleNS; // undefined: not resolved yet, null: unavailable
+let genCtl = null, genTimer = 0;
+const SIZES = { s: [30, 50], m: [50, 90], l: [90, 140] };
+const genOpts = { size: 'm', tier: 'default' };
+
+function toCompact(m) {
+  return {
+    name: m.name, nameEn: m.nameEn, description: m.description,
+    steps: m.steps.map(s => ({ step: s.step, title: s.title, description: s.description })),
+    blocks: m.blocks.map(b => { const a = [b.width, b.depth, b.height, b.x, b.y, b.z, b.rotation, b.color, b.step]; if (b.print) a.push(b.print.face); return a; })
+  };
+}
+async function examplePrompt() {
+  try {
+    const w = library.repo.find(x => x.id === 'block-robot') || library.repo[0];
+    const raw = await rawForKey('repo:' + w.id);
+    return JSON.stringify(toCompact(normalizeModel(raw)));
+  } catch (e) { return ''; }
+}
+function buildPrompt(request, example) {
+  const [lo, hi] = SIZES[genOpts.size];
+  return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
+Aim for about ${lo}-${hi} bricks. Make it clearly recognizable from the front, with good colors and proportions.
+
+COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
+
+BRICK FORMAT: [w, d, h, x, y, z, rotation, color, step]
+- (w, d) with w ≤ d must be one of: ${BRICK_SIZES.map(s => s.join('x')).join(' ')}. h is 1 (or 2 only for a 1x2 brick that is two layers tall).
+- rotation 0: w runs along X and d along Z (sx = w, sz = d). rotation 90: d runs along X and w along Z (sx = d, sz = w).
+- color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
+- Optional 10th element "+z" / "-z" / "+x" / "-x" prints a clock face on that side (only for [1,2,2,…] bricks).
+
+PHYSICS RULES — an automatic checker verifies all of them:
+1. No two bricks may overlap in space.
+2. Two bricks are CONNECTED only when one sits directly on top of the other (lower.y + lower.h == upper.y) AND their footprints overlap by at least one stud. Bricks side by side are NOT connected.
+3. Every brick must connect through a chain of such connections to a brick at y = 0. Each brick needs a brick directly below or directly above that overlaps its footprint. Overhangs are fine when part of the brick rests on something.
+4. Bricks in the same layer are only held together by bricks above or below that span the joint, so use running bond: stagger joints between layers, and make the lowest layers form a solid, interlocked base.
+5. Steps start at 1 and increase. Build bottom-up: when a step is built, each of its bricks must attach to the ground or to bricks from earlier steps (or to bricks of the same step that are already attached). A brick that hangs below an overhang goes in a LATER step than the brick it hangs from. Never put a brick where bricks from earlier steps are already both directly above and directly below it.
+
+TIPS: plan layer by layer on a grid and double-check every brick against rules 1–3; 6–20 steps with 1–12 bricks each; Japanese step titles and instructions that name the bricks used (for example 「赤い2×4を2本並べます」).
+
+OUTPUT: only this JSON, no other text:
+{"name":"日本語の作品名","nameEn":"English name","description":"日本語で1文の説明","steps":[{"step":1,"title":"短い日本語の見出し","description":"日本語の手順説明"}],"blocks":[[w,d,h,x,y,z,rotation,"color",step], …]}
+${example ? `\nEXAMPLE of a valid model (a robot) in exactly this format:\n${example}\n` : ''}`;
+}
+
+function logLine(text, cls = 'run') {
+  const ul = $('#gen-log'); ul.hidden = false;
+  const li = document.createElement('li');
+  li.className = cls;
+  li.innerHTML = `<span class="i">${cls === 'ok' ? '✓' : cls === 'bad' ? '✗' : '●'}</span><span class="tx"></span><span class="tm"></span>`;
+  li.querySelector('.tx').textContent = text;
+  ul.appendChild(li);
+  return {
+    set(t) { li.querySelector('.tx').textContent = t; },
+    meta(t) { li.querySelector('.tm').textContent = t; },
+    done(cls2 = 'ok', t) { li.className = cls2; li.querySelector('.i').textContent = cls2 === 'ok' ? '✓' : '✗'; if (t) li.querySelector('.tx').textContent = t; }
+  };
+}
+const SAMPLE_ERRORS = {
+  not_granted: 'Claude の利用が許可されませんでした。許可するとAI生成を使えます。',
+  sampling_disabled: 'このアカウントではAI生成を使えません。',
+  rate_limited: '利用が混み合っているか上限に達しました。しばらくしてから試してください。',
+  session_expired: 'ログインの有効期限が切れました。claude.ai にログインし直してください。',
+  refused: 'この依頼は設計できませんでした。別の言い方で試してください。',
+  invalid_json: 'AIの出力を読み取れませんでした。もう一度試すか、大きさを「小」にしてください。',
+  prompt_too_large: '依頼文が長すぎます。短くしてください。',
+  empty_completion: 'AIが何も出力しませんでした。依頼を少し具体的にして試してください。'
+};
+
+function openGenerate() {
+  $('#gen-modal').hidden = false;
+  setStatus('#gen-status', '');
+  if (sampleNS === null) setStatus('#gen-status', 'AI生成は claude.ai 上の Artifact として開いたときに使えます（この表示では Claude を呼び出せません）。', 'bad');
+  $('#gen-go').disabled = sampleNS === null || !!genCtl;
+  setTimeout(() => $('#gen-prompt').focus(), 30);
+}
+
+async function generate() {
+  const request = $('#gen-prompt').value.trim();
+  if (!request) { setStatus('#gen-status', '作りたいものを入力してください。', 'bad'); $('#gen-prompt').focus(); return; }
+  if (!sampleNS) { setStatus('#gen-status', 'AI生成はこの表示では使えません。', 'bad'); return; }
+  genCtl = new AbortController();
+  const signal = genCtl.signal;
+  $('#gen-log').innerHTML = ''; $('#gen-log').hidden = false;
+  setStatus('#gen-status', '');
+  $('#gen-go').disabled = true; $('#gen-stop').hidden = false;
+  const t0 = Date.now();
+  genTimer = setInterval(() => { $('#gen-elapsed').textContent = `${Math.round((Date.now() - t0) / 1000)} 秒`; }, 500);
+  const opts = { signal, modelTier: genOpts.tier, cache: false };
+  try {
+    const example = await examplePrompt();
+    const prompt = buildPrompt(request, example);
+    const turns = [{ role: 'user', content: prompt }];
+    let compact = null, raw = null, m = null, c = null;
+    for (let round = 0; round < 3; round++) {
+      const line = logLine(round === 0 ? 'Claude が設計しています…（最初の出力まで数十秒かかることがあります）' : `見つかった問題を直してもらっています（${round}回目）…`);
+      compact = await sampleNS.json(turns, { ...opts, onText: ({ text }) => line.meta(`${text.length.toLocaleString()} 文字`) });
+      raw = fromCompact(compact, { prompt: request, author: 'AI (Claude)', createdAt: new Date().toISOString().slice(0, 10) });
+      m = normalizeModel(raw); c = validateModel(m);
+      line.done('ok', round === 0 ? `設計できました: ${m.name}（${m.blocks.length} ブロック・${m.steps.length} Step）` : `修正版を受け取りました（${m.blocks.length} ブロック）`);
+      const chk = logLine('構造チェック中…');
+      if (c.allOk) { chk.done('ok', '構造チェック: 4項目すべて OK'); break; }
+      const issues = describeIssues(m, c, 30);
+      chk.done('bad', `構造チェック: ${issues.length} 件の問題`);
+      if (round === 2) break;
+      turns.push({ role: 'assistant', content: JSON.stringify(compact) });
+      turns.push({ role: 'user', content: `The automatic checker found these problems (block ids are block_001 = the 1st brick in your list, block_002 = the 2nd, …):\n${issues.join('\n')}\n\nFix every problem and output the complete corrected model as JSON in the same format. Keep the design recognizable.` });
+    }
+    if (!c.allOk) {
+      const fix = logLine('残った問題を自動で修復しています…');
+      const rep = autoRepair(raw);
+      raw = rep.raw; m = normalizeModel(raw); c = validateModel(m);
+      fix.done(c.allOk ? 'ok' : 'bad', c.allOk ? `自動修復で解決（${rep.removed.length} 個のブロックを取り除きました）` : '一部の問題が残っています（構造チェックの画面で確認できます）');
+    }
+    const key = addDraft(raw, 'ai');
+    library.rawCache.set(key, raw);
+    showModel(raw, key);
+    logLine('下書きに保存しました。組み立てを再生します。', 'ok');
+    setStatus('#gen-status', `「${m.name}」を下書きに保存しました。`, 'ok');
+    setTimeout(() => { closeModals(); startPlay(); }, 900);
+  } catch (e) {
+    if (e && e.code === 'cancelled') { logLine('中止しました。', 'bad'); }
+    else {
+      const msg = (e && SAMPLE_ERRORS[e.code]) || (e && e.message) || '設計に失敗しました。もう一度試してください。';
+      logLine(msg, 'bad');
+      setStatus('#gen-status', msg, 'bad');
+      if (e && ['not_granted', 'sampling_disabled'].includes(e.code)) { sampleNS = null; }
+    }
+  } finally {
+    clearInterval(genTimer);
+    genCtl = null;
+    $('#gen-go').disabled = sampleNS === null;
+    $('#gen-stop').hidden = true;
+  }
+}
+$('#gen-go').addEventListener('click', generate);
+$('#gen-stop').addEventListener('click', () => genCtl && genCtl.abort());
+$('#gen-ideas').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { $('#gen-prompt').value = b.textContent; $('#gen-prompt').focus(); } });
+for (const [sel, keyName] of [['#gen-size', 'size'], ['#gen-tier', 'tier']]) {
+  $(sel).addEventListener('click', e => {
+    const b = e.target.closest('button[data-v]'); if (!b) return;
+    genOpts[keyName] = b.dataset.v;
+    $(sel).querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+}
+
+/* ======================================================================
+   8. EVENTS
+   ====================================================================== */
+$('#btn-library').addEventListener('click', openLibrary);
+$('#btn-generate').addEventListener('click', openGenerate);
 $('#btn-complete').addEventListener('click', () => setMode('complete'));
-$('#btn-build').addEventListener('click', () => { if (state.mode !== 'build') goStep(state.stepIdx); });
+$('#btn-build').addEventListener('click', () => { stopPlay(); if (state.mode !== 'build') goStep(state.stepIdx); });
 $('#btn-explode').addEventListener('click', () => setExploded(!state.exploded));
 $('#btn-reset').addEventListener('click', () => Scene.flyTo(Scene.VIEWS.iso));
-$('#btn-next').addEventListener('click', next);
+$('#btn-next').addEventListener('click', () => { stopPlay(); next(); });
 $('#btn-prev').addEventListener('click', prev);
-$('#step-chips').addEventListener('click', e => { const b = e.target.closest('button[data-idx]'); if (b) goStep(+b.dataset.idx, true); });
+$('#btn-play').addEventListener('click', () => state.playing ? stopPlay() : startPlay());
+$('#step-chips').addEventListener('click', e => { const b = e.target.closest('button[data-idx]'); if (b) { stopPlay(); goStep(+b.dataset.idx, true); } });
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
   const v = b.dataset.view;
   Scene.flyTo(v === 'fit' ? null : Scene.VIEWS[v]);
@@ -1217,13 +1410,12 @@ function onSelAction(e) {
   const a = e.target.closest('[data-act]'); if (!a) return;
   const id = state.selectedId;
   if (a.dataset.act === 'deselect') select(null);
-  else if (a.dataset.act === 'goto-step' && id) { const b = state.model.byId.get(id); goStep(state.model.steps.findIndex(s => s.step === b.step)); }
+  else if (a.dataset.act === 'goto-step' && id) { stopPlay(); const b = state.model.byId.get(id); goStep(state.model.steps.findIndex(s => s.step === b.step)); }
   else if (a.dataset.act === 'focus' && id) Scene.focusBlock(id);
 }
 $('#panel-selected').addEventListener('click', onSelAction);
 $('#selcard').addEventListener('click', onSelAction);
 
-// 3D click-to-select (ignored when the pointer was dragged to orbit/pan)
 const canvas = Scene.canvas, tip = $('#tip');
 let down = null, hoverRaf = 0;
 canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), btn: e.button }; });
@@ -1237,7 +1429,7 @@ canvas.addEventListener('pointerup', e => {
   down = null;
 });
 canvas.addEventListener('pointermove', e => {
-  if (e.pointerType !== 'mouse' || e.buttons) { tip.hidden = true; return; }
+  if (e.pointerType !== 'mouse' || e.buttons || !state.model) { tip.hidden = true; return; }
   cancelAnimationFrame(hoverRaf);
   hoverRaf = requestAnimationFrame(() => {
     const id = Scene.pick(e);
@@ -1254,12 +1446,19 @@ canvas.addEventListener('pointermove', e => {
 });
 canvas.addEventListener('pointerleave', () => { state.hoverId = null; tip.hidden = true; });
 
+const anyModalOpen = () => [...document.querySelectorAll('.modal')].some(m => !m.hidden);
+function closeModals() { document.querySelectorAll('.modal').forEach(m => { m.hidden = true; }); }
+document.querySelectorAll('.modal').forEach(md => {
+  md.addEventListener('click', e => { if (e.target === md || e.target.closest('[data-close]')) md.hidden = true; });
+});
 document.addEventListener('keydown', e => {
-  if (e.target.closest('input, textarea') || !$('#modal').hidden) { if (e.key === 'Escape') closeModal(); return; }
+  if (anyModalOpen()) { if (e.key === 'Escape') closeModals(); return; }
+  if (e.target.closest('input, textarea') || !state.model) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   switch (e.key) {
-    case 'ArrowRight': next(); e.preventDefault(); break;
+    case 'ArrowRight': stopPlay(); next(); e.preventDefault(); break;
     case 'ArrowLeft': prev(); e.preventDefault(); break;
+    case ' ': state.playing ? stopPlay() : startPlay(); e.preventDefault(); break;
     case 'e': case 'E': setExploded(!state.exploded); break;
     case 'f': case 'F': Scene.flyTo(null); break;
     case 'r': case 'R': Scene.flyTo(Scene.VIEWS.iso); break;
@@ -1268,21 +1467,24 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- JSON export / import ---------- */
-const modal = $('#modal'), jsonText = $('#json-text'), mStatus = $('#modal-status');
-let downloadsNS; // undefined = not asked yet / standalone, null = unavailable in this view
+const jsonText = $('#json-text');
+let downloadsNS;
 if (window.claude && typeof window.claude.use === 'function') {
   $('#btn-save').hidden = true;
   window.claude.use('downloads').then(ns => { downloadsNS = ns; $('#btn-save').hidden = !ns; }).catch(() => { downloadsNS = null; });
+  window.claude.use('sample').then(ns => { sampleNS = ns; if (!genCtl) $('#gen-go').disabled = !ns; }).catch(() => { sampleNS = null; });
+} else {
+  sampleNS = null;
 }
-function status(msg, kind = '') { mStatus.textContent = msg; mStatus.className = 'status ' + kind; }
-function openModal(kind) {
-  modal.hidden = false;
-  status('');
+function openJSONModal(kind) {
+  if (kind === 'export' && !state.model) return;
+  $('#modal').hidden = false;
+  setStatus('#modal-status', '');
   const exp = kind === 'export';
   $('#modal-title').textContent = exp ? 'モデルJSONを書き出す' : 'モデルJSONを読み込む';
   $('#modal-note').textContent = exp
     ? `「${state.model.name}」の全 ${state.model.blocks.length} ブロック・${state.model.steps.length} Step・色定義を含むJSONです。コピーまたは保存して、あとで「JSONを読み込む」から復元できます。`
-    : 'エクスポートしたJSONを貼り付けるか、.json ファイルを選んでください。読み込むと構造チェックも自動で再実行されます。';
+    : 'エクスポートしたJSONを貼り付けるか、.json ファイルを選んでください。読み込んだ作品は「この端末の下書き」に保存され、構造チェックも自動で実行されます。';
   $('#export-actions').hidden = !exp;
   $('#import-actions').hidden = exp;
   jsonText.readOnly = exp;
@@ -1290,72 +1492,67 @@ function openModal(kind) {
   jsonText.placeholder = exp ? '' : '{\n  "format": "blockmade.model",\n  "name": "...",\n  "blocks": [ ... ]\n}';
   setTimeout(() => { jsonText.focus(); if (exp) jsonText.setSelectionRange(0, 0); }, 30);
 }
-function closeModal() { modal.hidden = true; }
-$('#btn-export').addEventListener('click', () => openModal('export'));
-$('#btn-import').addEventListener('click', () => openModal('import'));
-$('#modal-close').addEventListener('click', closeModal);
-modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+$('#btn-export').addEventListener('click', () => openJSONModal('export'));
+$('#btn-import').addEventListener('click', () => openJSONModal('import'));
 $('#btn-copy').addEventListener('click', () => {
-  const text = jsonText.value;
-  const fallback = () => { jsonText.focus(); jsonText.select(); status('テキストを選択しました。Ctrl+C / ⌘C でコピーしてください。'); };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => status('クリップボードにコピーしました。', 'ok'), fallback);
-  else fallback();
+  copyText(jsonText.value, () => setStatus('#modal-status', 'クリップボードにコピーしました。', 'ok'),
+    () => { jsonText.focus(); jsonText.select(); setStatus('#modal-status', 'テキストを選択しました。Ctrl+C / ⌘C でコピーしてください。'); });
 });
 $('#btn-save').addEventListener('click', async () => {
   const text = jsonText.value;
   const fname = (state.model.nameEn || 'blockmade-model').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.json';
   if (downloadsNS) {
-    try { await downloadsNS.save({ filename: fname, data: text }); status(`${fname} を保存しました。`, 'ok'); }
-    catch (err) { status(err && err.code === 'declined' ? '保存をキャンセルしました。' : '保存できませんでした。「コピー」をお使いください。', err && err.code === 'declined' ? '' : 'bad'); }
+    try { await downloadsNS.save({ filename: fname, data: text }); setStatus('#modal-status', `${fname} を保存しました。`, 'ok'); }
+    catch (err) { const declined = err && err.code === 'declined'; setStatus('#modal-status', declined ? '保存をキャンセルしました。' : '保存できませんでした。「コピー」をお使いください。', declined ? '' : 'bad'); }
     return;
   }
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  status(`${fname} を保存しました。`, 'ok');
+  setStatus('#modal-status', `${fname} を保存しました。`, 'ok');
 });
 function applyJSONText(text) {
   let raw;
-  try { raw = JSON.parse(text); } catch (err) { status('JSONとして読み取れません: ' + err.message, 'bad'); return; }
+  try { raw = JSON.parse(text); } catch (err) { setStatus('#modal-status', 'JSONとして読み取れません: ' + err.message, 'bad'); return; }
   try {
-    const m = loadModel(raw, { persist: true });
-    status(`「${m.name}」を読み込みました（${m.blocks.length} ブロック / ${m.steps.length} Step）。`, 'ok');
-    setTimeout(closeModal, 700);
-  } catch (err) { status('モデルを復元できません: ' + err.message, 'bad'); }
+    normalizeModel(raw);
+    const key = addDraft(raw, 'import');
+    const m = showModel(raw, key);
+    setStatus('#modal-status', `「${m.name}」を読み込み、下書きに保存しました（${m.blocks.length} ブロック / ${m.steps.length} Step）。`, 'ok');
+    setTimeout(closeModals, 800);
+  } catch (err) { setStatus('#modal-status', 'モデルを復元できません: ' + err.message, 'bad'); }
 }
 $('#btn-apply').addEventListener('click', () => applyJSONText(jsonText.value));
 $('#file-input').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => { jsonText.value = String(rd.result); applyJSONText(jsonText.value); };
-  rd.onerror = () => status('ファイルを読み込めませんでした。', 'bad');
+  rd.onerror = () => setStatus('#modal-status', 'ファイルを読み込めませんでした。', 'bad');
   rd.readAsText(f);
   e.target.value = '';
 });
-$('#btn-sample').addEventListener('click', () => {
-  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
-  loadModel(MODEL_DATA);
-  status('サンプルの時計塔に戻しました。', 'ok');
-  setTimeout(closeModal, 600);
-});
 
-/* ---------- boot ---------- */
+/* ======================================================================
+   9. BOOT
+   ====================================================================== */
 if (matchMedia('(pointer: coarse)').matches) $('#hint').textContent = '1本指: 回転 · 2本指: ズーム / パン · タップ: 選択';
-let booted = false;
-try {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) { loadModel(JSON.parse(saved)); booted = true; }
-} catch (e) { booted = false; }
-if (!booted) loadModel(MODEL_DATA);
-
-// expose for debugging / scripted checks
-window.BlockMade = { state, normalizeModel, validateModel, loadModel, modelToJSON };
+function showViewportMessage(html) { $('#vp-msg-text').innerHTML = html; $('#vp-msg').hidden = false; }
+(async function boot() {
+  let libErr = null;
+  try { library.repo = (await fetchJSON('models/index.json')).works || []; }
+  catch (e) { libErr = e; library.repo = []; }
+  const keys = [...library.repo.map(w => 'repo:' + w.id), ...library.drafts.map(d => 'draft:' + d.id)];
+  const last = store.get(LAST_KEY, null);
+  const order = [last, ...keys].filter((k, i, a) => k && keys.includes(k) && a.indexOf(k) === i);
+  for (const key of order) {
+    try { await openWork(key); return; } catch (e) { /* try the next work */ }
+  }
+  showViewportMessage(libErr
+    ? `<b>作品ライブラリ（models/）を読み込めませんでした。</b><br>ローカルで開いている場合は、フォルダで <span class="mono">npx http-server</span> などを起動して http:// から開いてください。<br><span class="mono" style="font-size:12px">${esc(libErr.message)}</span>`
+    : '<b>表示できる作品がありません。</b><br>「✦ AIで作る」か「JSONを読み込む」から作品を追加してください。');
+  $('#model-name').textContent = '作品なし';
 })();
-</script>
-<script>
-// Fallback when the 3D library could not load (e.g. offline)
-if (typeof THREE === 'undefined' || !THREE.OrbitControls) {
-  const v = document.getElementById('viewport');
-  v.insertAdjacentHTML('beforeend', '<div class="gl-error">3Dライブラリ (Three.js) を読み込めませんでした。ネットワーク接続を確認して再読み込みしてください。</div>');
-}
+
+window.BlockMade = { state, library, showModel, openWork, startPlay, buildPrompt };
+})();
 </script>

@@ -1,0 +1,202 @@
+{
+  "format": "blockmade.model",
+  "version": 1,
+  "name": "小さな時計塔",
+  "nameEn": "Small Clock Tower",
+  "description": "8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。",
+  "author": "Claude",
+  "createdAt": "2026-09-23",
+  "colors": {
+    "dark-gray": {
+      "name": "Dark Gray",
+      "hex": "#59616b"
+    },
+    "light-gray": {
+      "name": "Light Gray",
+      "hex": "#a8afb7"
+    },
+    "tan": {
+      "name": "Tan",
+      "hex": "#d6b97c"
+    },
+    "brown": {
+      "name": "Brown",
+      "hex": "#6e452b"
+    },
+    "green": {
+      "name": "Green",
+      "hex": "#2e8b50"
+    },
+    "trans-blue": {
+      "name": "Trans Blue",
+      "hex": "#7cc3f0",
+      "opacity": 0.55
+    },
+    "white": {
+      "name": "White",
+      "hex": "#f0efe9"
+    },
+    "gold": {
+      "name": "Gold",
+      "hex": "#d8a83c",
+      "metalness": 0.35,
+      "roughness": 0.34
+    },
+    "red": {
+      "name": "Red",
+      "hex": "#b23a30"
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "土台 1段目",
+      "description": "ダークグレーの2×8を4本、長い辺を前後(Z)方向に向けて左右に隙間なく並べ、8×8の正方形の土台をつくります。"
+    },
+    {
+      "step": 2,
+      "title": "土台 2段目",
+      "description": "2×8を4本、90°回して1段目と直交するように重ねます。各ブロックが1段目の4本すべてをまたぐので、土台全体が1つに固定されます。"
+    },
+    {
+      "step": 3,
+      "title": "石段と植え込み",
+      "description": "正面中央に砂色の2×2を置いて石段にし、土台の四隅に緑の2×2で植え込みをつくります。"
+    },
+    {
+      "step": 4,
+      "title": "塔の1段目",
+      "description": "土台中央の4×4の範囲に壁を立てます。背面に1×4、左右に1×2。正面は扉口を空けるため、両端に1×1の柱だけを置きます。"
+    },
+    {
+      "step": 5,
+      "title": "扉",
+      "description": "扉口から1スタッド奥に茶色の1×2を2段積み、奥まった扉にします。"
+    },
+    {
+      "step": 6,
+      "title": "塔の2段目",
+      "description": "左右に1×4を前後方向に載せ、下段の継ぎ目をまたがせます。背面には1×2。正面は扉口なので空けたままにします。"
+    },
+    {
+      "step": 7,
+      "title": "扉の上のまぐさ",
+      "description": "正面に砂色の1×4を渡して扉口の上をふさぎます（まぐさ）。左右の柱が両端を支えます。背面に1×4、左右に1×2を置いて段を仕上げます。"
+    },
+    {
+      "step": 8,
+      "title": "前後の窓",
+      "description": "左右に1×4を載せ、前後の中央に透明ブルーの1×2を入れて窓にします。"
+    },
+    {
+      "step": 9,
+      "title": "左右の窓",
+      "description": "前後に1×4を渡し、左右の中央に透明ブルーの1×2を入れて側面の窓にします。"
+    },
+    {
+      "step": 10,
+      "title": "時計下の帯",
+      "description": "砂色のブロックで1段積み、時計部分の下に装飾の帯をつくります。積み方は2段目と同じです。"
+    },
+    {
+      "step": 11,
+      "title": "時計部の四隅",
+      "description": "塔の4つの角に金色の1×1を立てます。"
+    },
+    {
+      "step": 12,
+      "title": "時計の文字盤",
+      "description": "時計がプリントされた白い1×2×2（2段分の高さ）を4面に取り付けます。文字盤は外側に向けます。"
+    },
+    {
+      "step": 13,
+      "title": "四隅の2段目",
+      "description": "金色の1×1をもう1段重ね、文字盤と高さをそろえます。"
+    },
+    {
+      "step": 14,
+      "title": "軒（コーニス）",
+      "description": "前後に2×6、左右に2×2を置いて、塔より1スタッド張り出した6×6の軒をつくります。内側の列が時計部の上にかみ合って支えます。"
+    },
+    {
+      "step": 15,
+      "title": "角の飾り",
+      "description": "軒の四隅の張り出し部分に金色の1×1を立てます。"
+    },
+    {
+      "step": 16,
+      "title": "屋根",
+      "description": "赤い2×4を2本並べて4×4の屋根にします。この2本が軒の4つの部品をまたいで1つにまとめます。"
+    },
+    {
+      "step": 17,
+      "title": "頂部",
+      "description": "中央に赤い2×2を重ね、最後に金色の2×2を頂上に載せて完成です。"
+    }
+  ],
+  "blocks": [
+    {"id":"block_001","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_002","type":"2x8","width":2,"depth":8,"height":1,"x":2,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_003","type":"2x8","width":2,"depth":8,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_004","type":"2x8","width":2,"depth":8,"height":1,"x":6,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},
+    {"id":"block_005","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":0,"rotation":90,"color":"dark-gray","step":2},
+    {"id":"block_006","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":2,"rotation":90,"color":"dark-gray","step":2},
+    {"id":"block_007","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":4,"rotation":90,"color":"dark-gray","step":2},
+    {"id":"block_008","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":6,"rotation":90,"color":"dark-gray","step":2},
+    {"id":"block_009","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":2,"z":6,"rotation":0,"color":"tan","step":3},
+    {"id":"block_010","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":0,"rotation":0,"color":"green","step":3},
+    {"id":"block_011","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":2,"z":0,"rotation":0,"color":"green","step":3},
+    {"id":"block_012","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":6,"rotation":0,"color":"green","step":3},
+    {"id":"block_013","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":2,"z":6,"rotation":0,"color":"green","step":3},
+    {"id":"block_014","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":2,"z":2,"rotation":90,"color":"light-gray","step":4},
+    {"id":"block_015","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":3,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_016","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":3,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_017","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":2,"z":5,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_018","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":2,"z":5,"rotation":0,"color":"light-gray","step":4},
+    {"id":"block_019","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":2,"z":4,"rotation":90,"color":"brown","step":5},
+    {"id":"block_020","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":3,"z":4,"rotation":90,"color":"brown","step":5},
+    {"id":"block_021","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":3,"z":2,"rotation":0,"color":"light-gray","step":6},
+    {"id":"block_022","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":3,"z":2,"rotation":0,"color":"light-gray","step":6},
+    {"id":"block_023","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":3,"z":2,"rotation":90,"color":"light-gray","step":6},
+    {"id":"block_024","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":4,"z":2,"rotation":90,"color":"light-gray","step":7},
+    {"id":"block_025","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":4,"z":5,"rotation":90,"color":"tan","step":7},
+    {"id":"block_026","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":3,"rotation":0,"color":"light-gray","step":7},
+    {"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":4,"z":3,"rotation":0,"color":"light-gray","step":7},
+    {"id":"block_028","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":5,"z":2,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_029","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":5,"z":2,"rotation":0,"color":"light-gray","step":8},
+    {"id":"block_030","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":5,"z":2,"rotation":90,"color":"trans-blue","step":8},
+    {"id":"block_031","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":5,"z":5,"rotation":90,"color":"trans-blue","step":8},
+    {"id":"block_032","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":6,"z":2,"rotation":90,"color":"light-gray","step":9},
+    {"id":"block_033","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":6,"z":5,"rotation":90,"color":"light-gray","step":9},
+    {"id":"block_034","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":6,"z":3,"rotation":0,"color":"trans-blue","step":9},
+    {"id":"block_035","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":6,"z":3,"rotation":0,"color":"trans-blue","step":9},
+    {"id":"block_036","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":7,"z":2,"rotation":0,"color":"tan","step":10},
+    {"id":"block_037","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":7,"z":2,"rotation":0,"color":"tan","step":10},
+    {"id":"block_038","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":7,"z":2,"rotation":90,"color":"tan","step":10},
+    {"id":"block_039","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":7,"z":5,"rotation":90,"color":"tan","step":10},
+    {"id":"block_040","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":8,"z":2,"rotation":0,"color":"gold","step":11},
+    {"id":"block_041","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":8,"z":2,"rotation":0,"color":"gold","step":11},
+    {"id":"block_042","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":8,"z":5,"rotation":0,"color":"gold","step":11},
+    {"id":"block_043","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":8,"z":5,"rotation":0,"color":"gold","step":11},
+    {"id":"block_044","type":"1x2x2","width":1,"depth":2,"height":2,"x":3,"y":8,"z":5,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"+z"}},
+    {"id":"block_045","type":"1x2x2","width":1,"depth":2,"height":2,"x":3,"y":8,"z":2,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"-z"}},
+    {"id":"block_046","type":"1x2x2","width":1,"depth":2,"height":2,"x":2,"y":8,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"-x"}},
+    {"id":"block_047","type":"1x2x2","width":1,"depth":2,"height":2,"x":5,"y":8,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"+x"}},
+    {"id":"block_048","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":9,"z":2,"rotation":0,"color":"gold","step":13},
+    {"id":"block_049","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":9,"z":2,"rotation":0,"color":"gold","step":13},
+    {"id":"block_050","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":9,"z":5,"rotation":0,"color":"gold","step":13},
+    {"id":"block_051","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":9,"z":5,"rotation":0,"color":"gold","step":13},
+    {"id":"block_052","type":"2x6","width":2,"depth":6,"height":1,"x":1,"y":10,"z":5,"rotation":90,"color":"dark-gray","step":14},
+    {"id":"block_053","type":"2x6","width":2,"depth":6,"height":1,"x":1,"y":10,"z":1,"rotation":90,"color":"dark-gray","step":14},
+    {"id":"block_054","type":"2x2","width":2,"depth":2,"height":1,"x":1,"y":10,"z":3,"rotation":0,"color":"dark-gray","step":14},
+    {"id":"block_055","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":10,"z":3,"rotation":0,"color":"dark-gray","step":14},
+    {"id":"block_056","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":11,"z":1,"rotation":0,"color":"gold","step":15},
+    {"id":"block_057","type":"1x1","width":1,"depth":1,"height":1,"x":6,"y":11,"z":1,"rotation":0,"color":"gold","step":15},
+    {"id":"block_058","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":11,"z":6,"rotation":0,"color":"gold","step":15},
+    {"id":"block_059","type":"1x1","width":1,"depth":1,"height":1,"x":6,"y":11,"z":6,"rotation":0,"color":"gold","step":15},
+    {"id":"block_060","type":"2x4","width":2,"depth":4,"height":1,"x":2,"y":11,"z":2,"rotation":90,"color":"red","step":16},
+    {"id":"block_061","type":"2x4","width":2,"depth":4,"height":1,"x":2,"y":11,"z":4,"rotation":90,"color":"red","step":16},
+    {"id":"block_062","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":12,"z":3,"rotation":0,"color":"red","step":17},
+    {"id":"block_063","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":13,"z":3,"rotation":0,"color":"gold","step":17}
+  ]
+}

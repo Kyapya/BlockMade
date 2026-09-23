@@ -1,24 +1,44 @@
 # BlockMade
 
-LEGO風のブロックで設計したモデルを、3Dで確認できるインタラクティブなビューアです。完成形、組み立て手順、パーツ一覧、構造チェックを見られます。サーバーもAPIキーも不要で、ブラウザだけで動きます。
+LEGO風のブロックで設計した作品を3Dで確認できるビューアです。完成形、組み立て手順、パーツ一覧、構造チェックを見られます。作品をライブラリとしてストックでき、AIに新しい作品を設計させることもできます。
 
-最初のサンプルは **小さな時計塔**（63ブロック・17 Step・14段）です。
+## 作品ライブラリ
+
+作品は `models/` に1作品1ファイルのJSONとして保存します。一覧は `models/index.json` です。
+
+| 作品 | ブロック | Step |
+| --- | --- | --- |
+| 小さな時計塔 (`clock-tower.json`) | 63 | 17 |
+| 赤い屋根の家 (`red-roof-house.json`) | 88 | 11 |
+| スターファイター (`star-fighter.json`) | 31 | 15 |
+| ブロックロボ (`block-robot.json`) | 39 | 13 |
+
+### 作品の追加方法
+
+- **Claude とのチャットで追加する**: 「〇〇を追加して」と頼むと、Claude が設計して `models/` に保存し、構造チェックを通します。
+- **アプリの「✦ AIで作る」から作る**: 作りたいものを入力すると、アプリ内で Claude が設計します。構造チェックで問題が見つかった場合は、最大2回まで AI に修正させ、それでも残れば自動で修復します。できた作品はそのブラウザに下書きとして保存され、Step 1 から組み上げて見せます。
+  ライブラリに登録するには、ライブラリ画面のカードで「登録用にコピー」を押し、その内容を Claude とのチャットに貼り付けてください。
+- **手で追加する**: JSON を `models/` に置いて `node tools/validate.mjs` を実行すると、全作品を検証して `index.json` を作り直します。
 
 ## 起動方法
 
-`index.html` をブラウザで開きます。Three.js は jsDelivr から読み込みます。
+アプリは `models/` を `fetch` で読み込むため、HTTPで配信する必要があります。
+
+```sh
+npx http-server .     # → http://localhost:8080/index.html
+```
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
-| `blockmade.html` | アプリ本体（Artifact用のページ本文）。`MODEL_DATA` とUI/3Dのコードを含みます |
-| `index.html` | 単体で開けるスタンドアロン版。`node tools/build-standalone.mjs` で生成します |
-| `tools/build-standalone.mjs` | `blockmade.html` を完全なHTML文書で包み、`index.html` を生成します |
+| `blockmade.html` | アプリ本体（Artifact用のページ本文）です |
+| `index.html` | ブラウザで開けるスタンドアロン版です。`node tools/build-standalone.mjs` で生成します |
+| `js/model-core.js` | モデルの正規化・構造チェック・自動修復・JSON変換を行います。ブラウザとCLIで共用します |
+| `models/*.json` | 作品データです |
+| `tools/validate.mjs` | 全作品を検証し、`models/index.json` を再生成します |
 
-## モデルの差し替え
-
-`blockmade.html` 内の `<script id="model-data">` にある `MODEL_DATA` だけを書き換えれば、UIには手を入れずに別の作品（宇宙船・家・ロボット…）に差し替えられます。アプリの「JSONを読み込む」から同じ形式のJSONを読み込むこともできます。
+## モデル形式
 
 ```js
 { id: "block_001", type: "2x8", width: 2, depth: 8, height: 1,
@@ -29,8 +49,8 @@ LEGO風のブロックで設計したモデルを、3Dで確認できるイン�
 - `x, y, z` はブロックの最小角を表します。
 - `rotation` が 0 のときは width が X 方向、depth が Z 方向です。90 のときは入れ替わります。
 - `height` はブロックの段数です（1 = 通常ブロック、2 = 1×2×2 など）。
+- `colors` で色を定義します。`js/model-core.js` の標準色（`red`, `trans-blue` など）は、`colors` に書かなくても使えます。
 - 任意の `print: { pattern: "clock", face: "+z" }` を付けると、指定した面に時計の文字盤が描かれます。
-- `colors` で色を、`steps` で各 Step のタイトルと説明を定義します。
 
 ## 構造チェックのルール
 
