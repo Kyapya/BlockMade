@@ -41,9 +41,10 @@ node tools/build.mjs      # index.html と dist/artifact.html を生成
 | `js/model-core.js` | モデルの正規化・構造チェック・自動修復・JSON変換を行います。ブラウザとCLIで共用します |
 | `models/*.json` | 作品データです |
 | `tools/validate.mjs` | 全作品を検証し、`models/index.json` を再生成します |
-| `tools/build.mjs` | 共通コードと全作品を埋め込み、単一ファイルのページを生成します |
+| `tools/build.mjs` | Three.js・共通コード・全作品を埋め込み、単一ファイルのページを生成します |
+| `vendor/` | Three.js r147 と OrbitControls（MIT License）です |
 
-Artifact のビューアは、承認された CDN 以外から読み込むスクリプトを実行しません。そのため、公開するページには必要なものをすべて埋め込んでいます。
+公開するページには、Three.js（`vendor/`、MIT）を含めて必要なスクリプトをすべて埋め込み、外部からスクリプトを一切読み込まないようにしています。Artifact のビューアでは、外部スクリプトの読み込みが失敗することがあるためです。
 
 ## モデル形式
 

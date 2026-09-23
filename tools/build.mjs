@@ -1,9 +1,8 @@
 // Builds self-contained pages from blockmade.html:
 //   dist/artifact.html  page body for the claude.ai Artifact (no <html>/<head>)
 //   index.html          standalone document, opens directly from disk
-// js/model-core.js, vendor/OrbitControls.js and every work in models/ are inlined,
-// so the page loads no local files at runtime (the Artifact viewer only allows
-// CDN scripts). Three.js itself comes from a CDN, with a second CDN as fallback.
+// Three.js, OrbitControls, js/model-core.js and every work in models/ are inlined,
+// so the published page loads no scripts from anywhere at runtime.
 //   node tools/build.mjs
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,9 +19,12 @@ let page = read('blockmade.html');
 const core = '<script src="js/model-core.js"></script>';
 if (!page.includes(core) || !page.includes('<!--LIBRARY-->')) throw new Error('blockmade.html is missing the build markers');
 page = page.replace(core, () => `<script>\n${safe(read('js/model-core.js'))}</script>`);
-const dev = '<script src="vendor/OrbitControls.js" data-dev-only></script>';
-if (!page.includes(dev) || !page.includes('/*ORBIT_CONTROLS*/')) throw new Error('blockmade.html is missing the OrbitControls markers');
-page = page.replace(dev, '').replace('/*ORBIT_CONTROLS*/', () => safe(read('vendor/OrbitControls.js')));
+for (const f of ['vendor/three.min.js', 'vendor/OrbitControls.js']) {
+  const tag = `<script src="${f}"></script>`;
+  if (!page.includes(tag)) throw new Error(`blockmade.html is missing ${tag}`);
+  // Hide any page-level module/exports/define so the UMD build always sets the THREE global.
+  page = page.replace(tag, () => `<script>\n(function (exports, module, define) {\n${safe(read(f))}\n}).call(globalThis);\n</script>`);
+}
 page = page.replace('<!--LIBRARY-->', () => `<script>\nwindow.BLOCKMADE_LIBRARY = ${safe(JSON.stringify(index))};\n</script>`);
 
 mkdirSync(join(root, 'dist'), { recursive: true });

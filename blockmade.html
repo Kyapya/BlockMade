@@ -390,32 +390,19 @@ button{cursor:pointer}
      tools/build.mjs inlines both into a single self-contained page. -->
 <script src="js/model-core.js"></script>
 <!--LIBRARY-->
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script>
-// OrbitControls is installed after THREE exists (tools/build.mjs inlines vendor/OrbitControls.js here).
-function installOrbitControls() {
-/*ORBIT_CONTROLS*/
-}
-</script>
-<script src="vendor/OrbitControls.js" data-dev-only></script>
+<!-- Three.js and OrbitControls (MIT). tools/build.mjs inlines both, so the
+     published page loads no external scripts at all. -->
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
 
 <script>
-// Load Three.js, falling back to a second CDN, then start the app.
-(function bootstrap() {
-  const loadScript = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
-  const ensureThree = () => typeof THREE !== 'undefined' ? Promise.resolve() : loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js').catch(() => {});
-  ensureThree().then(() => {
-    if (typeof THREE !== 'undefined' && !THREE.OrbitControls) { try { installOrbitControls(); } catch (e) { console.error(e); } }
-    startApp();
-  });
-})();
-
+startApp();
 function startApp() {
 'use strict';
 {
   const missing = [];
-  if (typeof THREE === 'undefined') missing.push('Three.js 本体（cdn.jsdelivr.net）');
-  else if (!THREE.OrbitControls) missing.push('OrbitControls（cdn.jsdelivr.net）');
+  if (typeof THREE === 'undefined') missing.push('Three.js 本体（ページ内）');
+  else if (!THREE.OrbitControls) missing.push('OrbitControls（ページ内）');
   if (!window.BlockModel) missing.push('BlockModel（ページ内のモデル処理コード）');
   if (missing.length) {
     const m = document.getElementById('vp-msg');
