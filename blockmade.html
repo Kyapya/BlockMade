@@ -481,6 +481,7 @@ const Scene = (() => {
     const fill = new THREE.DirectionalLight(0xa9c1ff, 0.28);
     fill.position.set(-18, 10, -14);
     scene.add(fill);
+    return sun;
   }
 
   const scene = new THREE.Scene();
@@ -493,7 +494,7 @@ const Scene = (() => {
   controls.minDistance = 3;
   controls.maxDistance = 240;
   controls.maxPolarAngle = Math.PI / 2 + 0.12;
-  addLights(scene, true);
+  const sun = addLights(scene, true);
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.32 }));
   ground.rotation.x = -Math.PI / 2;
@@ -637,7 +638,137 @@ const Scene = (() => {
   const cageMat = new THREE.LineBasicMaterial({ color: SELECT, depthTest: false, transparent: true, opacity: 0.95 });
   let cage = null;
 
+  // --- large models: static bricks are merged into one mesh per colour ---
+  // Each brick normally costs 3 draw calls (box, studs, edges). Works with
+  // BATCH_MIN or more bricks draw every brick that is simply "sitting there"
+  // (not new, selected, highlighted, transparent or printed) from merged
+  // geometry instead, and hide studs that another brick covers. The per-brick
+  // objects stay in the scene for picking, animation and highlighting.
+  const BATCH_MIN = 400;
+  const tmpl = (() => {
+    const box = new THREE.BoxGeometry(1, 1, 1), boxNI = box.toNonIndexed();
+    const cyl = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 14, 1), cylNI = cyl.toNonIndexed();
+    const keep = (cyl.groups[1].start + cyl.groups[1].count) * 3; // side + top cap; the bottom cap is never seen
+    const edges = new THREE.EdgesGeometry(box);
+    const t = { bp: boxNI.attributes.position.array.slice(), bn: boxNI.attributes.normal.array.slice(),
+      sp: cylNI.attributes.position.array.slice(0, keep), sn: cylNI.attributes.normal.array.slice(0, keep),
+      ep: edges.attributes.position.array.slice() };
+    [box, boxNI, cyl, cylNI, edges].forEach(g => g.dispose());
+    return t;
+  })();
+  /** For every stud of every brick, the index of the brick sitting on that stud (-1 = free). */
+  function coverIndex(blocks) {
+    const occ = new Map(), key = (x, y, z) => (y * 8192 + (z + 4096)) * 8192 + (x + 4096);
+    blocks.forEach((b, i) => { for (let y = b.y; y < b.y + b.h; y++) for (let z = b.z; z < b.z + b.sz; z++) for (let x = b.x; x < b.x + b.sx; x++) occ.set(key(x, y, z), i); });
+    return blocks.map(b => {
+      const a = new Int32Array(b.sx * b.sz);
+      let k = 0;
+      for (let i = 0; i < b.sx; i++) for (let j = 0; j < b.sz; j++) { const o = occ.get(key(b.x + i, b.y + b.h, b.z + j)); a[k++] = o === undefined ? -1 : o; }
+      return a;
+    });
+  }
+  /** Merge the listed bricks into one mesh per colour plus one edge-line object. */
+  function mergeBlocks(m, center, idxs, cov, hides, e, ghost, shadows = true, edges = true) {
+    const group = new THREE.Group(), byColor = new Map();
+    for (const i of idxs) { const k = m.blocks[i].color; if (!byColor.has(k)) byColor.set(k, []); byColor.get(k).push(i); }
+    const { bp, bn, sp, sn, ep } = tmpl, nb = bp.length / 3, ns = sp.length / 3, ne = ep.length / 3;
+    const place = b => [b.x + b.sx / 2 - center.x, b.y * H + b.h * H / 2 + e * b.y * EXPLODE, b.z + b.sz / 2 - center.z];
+    for (const [ck, list] of byColor) {
+      let nv = 0;
+      for (const i of list) { nv += nb; for (const o of cov[i]) if (!(o >= 0 && hides(o))) nv += ns; }
+      const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3);
+      let o = 0;
+      for (const i of list) {
+        const b = m.blocks[i], [cx, cy, cz] = place(b), hx = b.sx - GAP, hy = b.h * H - GAP, hz = b.sz - GAP;
+        for (let v = 0; v < nb; v++, o++) {
+          pos[o * 3] = bp[v * 3] * hx + cx; pos[o * 3 + 1] = bp[v * 3 + 1] * hy + cy; pos[o * 3 + 2] = bp[v * 3 + 2] * hz + cz;
+          nor[o * 3] = bn[v * 3]; nor[o * 3 + 1] = bn[v * 3 + 1]; nor[o * 3 + 2] = bn[v * 3 + 2];
+        }
+        const c = cov[i], sy = cy + b.h * H / 2 + STUD_H / 2 - GAP / 2;
+        let s = 0;
+        for (let a = 0; a < b.sx; a++) for (let d = 0; d < b.sz; d++, s++) {
+          if (c[s] >= 0 && hides(c[s])) continue;
+          const sx = cx + a - b.sx / 2 + 0.5, sz = cz + d - b.sz / 2 + 0.5;
+          for (let v = 0; v < ns; v++, o++) {
+            pos[o * 3] = sp[v * 3] + sx; pos[o * 3 + 1] = sp[v * 3 + 1] + sy; pos[o * 3 + 2] = sp[v * 3 + 2] + sz;
+            nor[o * 3] = sn[v * 3]; nor[o * 3 + 1] = sn[v * 3 + 1]; nor[o * 3 + 2] = sn[v * 3 + 2];
+          }
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      geo.computeBoundingSphere();
+      const c = m.colors[ck];
+      const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(c.hex), roughness: c.roughness, metalness: c.metalness,
+        transparent: ghost, opacity: ghost ? 0.13 : 1, depthWrite: !ghost });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = mesh.receiveShadow = shadows && !ghost;
+      mesh.raycast = () => {};
+      group.add(mesh);
+    }
+    if (!edges) return group;
+    const lp = new Float32Array(idxs.length * ne * 3);
+    let o = 0;
+    for (const i of idxs) {
+      const b = m.blocks[i], [cx, cy, cz] = place(b), hx = b.sx - GAP, hy = b.h * H - GAP, hz = b.sz - GAP;
+      for (let v = 0; v < ne; v++, o++) { lp[o * 3] = ep[v * 3] * hx + cx; lp[o * 3 + 1] = ep[v * 3 + 1] * hy + cy; lp[o * 3 + 2] = ep[v * 3 + 2] * hz + cz; }
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+    const line = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: ghost ? 0x9aa6b5 : 0x000000, transparent: true, opacity: ghost ? 0.22 : 0.3 }));
+    line.raycast = () => {};
+    group.add(line);
+    return group;
+  }
+  let big = false, curModel = null, curCenter = null, covers = null, codes = null;
+  let batch = { active: false, dirty: true, e: -1, group: null };
+  function disposeBatch() {
+    if (batch.group) {
+      batch.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      root.remove(batch.group);
+    }
+    batch = { active: false, dirty: true, e: -1, group: null };
+  }
+  /** Keep the merged geometry in step with the per-brick states. While the
+   *  exploded view is animating every brick is drawn on its own. */
+  function syncBatch() {
+    if (!big) return;
+    const settled = explodeT === (state.exploded ? 1 : 0);
+    if (!settled) {
+      if (batch.active) { disposeBatch(); recs.forEach((r, i) => { if (codes[i] === 1 || codes[i] === 2) r.group.visible = true; }); }
+      return;
+    }
+    if (batch.active && !batch.dirty && batch.e === explodeT) return;
+    disposeBatch();
+    const plain = [], ghosts = [];
+    codes.forEach((c, i) => { if (c === 1) plain.push(i); else if (c === 2) ghosts.push(i); });
+    const e = explodeT, g = new THREE.Group();
+    const solidOn = i => (codes[i] === 1 || (codes[i] === 3 && !recs[i].st.ghost)) && recs[i].baseOpacity >= 1;
+    if (plain.length) g.add(mergeBlocks(curModel, curCenter, plain, covers, e === 0 ? solidOn : () => false, e, false));
+    if (ghosts.length) g.add(mergeBlocks(curModel, curCenter, ghosts, covers, e === 0 ? (i => codes[i] !== 0) : () => false, e, true));
+    root.add(g);
+    batch = { active: true, dirty: false, e, group: g };
+    for (const i of plain.concat(ghosts)) { const r = recs[i]; r.group.visible = false; r.group.position.y = r.baseY + e * r.b.y * EXPLODE; }
+  }
+  /** Fit the sun's shadow box and the zoom limit to the work (unchanged for small works). */
+  function fitStage(m) {
+    const w = m.bounds.maxX - m.bounds.minX, d = m.bounds.maxZ - m.bounds.minZ;
+    const R = Math.max(26, Math.hypot(w, d, m.layers * H) / 2 + 3);
+    const cam = sun.shadow.camera;
+    Object.assign(cam, { left: -R, right: R, top: R, bottom: -R, far: Math.max(110, R * 2 + 58) });
+    cam.updateProjectionMatrix();
+    sun.position.set(16, 30, 20).multiplyScalar(Math.max(1, (R + 20) / 46));
+    const size = R > 40 ? 4096 : 2048;
+    if (sun.shadow.mapSize.x !== size) {
+      sun.shadow.mapSize.set(size, size);
+      if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+    }
+    controls.maxDistance = Math.max(240, R * 4.6);
+  }
+
   function build(m) {
+    disposeBatch();
     disposeGroup(recs);
     root.clear(); recById.clear(); pickables = []; liveClocks.length = 0;
     if (cage) { cage.geometry.dispose(); cage = null; }
@@ -645,6 +776,11 @@ const Scene = (() => {
     recs = made.recs;
     root.add(made.group);
     for (const r of recs) recById.set(r.b.id, r);
+    big = m.blocks.length >= BATCH_MIN;
+    curModel = m; curCenter = made.center;
+    covers = big ? coverIndex(m.blocks) : null;
+    codes = big ? new Uint8Array(m.blocks.length) : null;
+    fitStage(m);
     frontMark.position.set(0, 0.004, (m.bounds.maxZ - made.center.z) + 1.6);
     explodeT = state.exploded ? 1 : 0;
   }
@@ -686,6 +822,15 @@ const Scene = (() => {
       else if (ghost) { lm.color.set(0x9aa6b5); lm.opacity = 0.22; }
       else { lm.color.copy(BLACK); lm.opacity = r.baseOpacity < 1 ? 0.18 : 0.3; }
       if (vis && !ghost) pickables.push(r.mesh, ...r.studs);
+    }
+    if (big) {
+      recs.forEach((r, i) => {
+        const s = r.st;
+        codes[i] = !s.vis ? 0 : (s.isNew || s.sel || s.part || r.baseOpacity < 1 || r.b.print) ? 3 : s.ghost ? 2 : 1;
+        r.group.visible = codes[i] !== 0;
+      });
+      batch.dirty = true;
+      syncBatch();
     }
     if (cage) { cage.parent && cage.parent.remove(cage); cage.geometry.dispose(); cage = null; }
     const sr = state.selectedId && recById.get(state.selectedId);
@@ -752,14 +897,25 @@ const Scene = (() => {
       addLights(thumbScene, false);
       thumbCam = new THREE.PerspectiveCamera(34, 360 / 270, 0.1, 600);
     }
-    const made = makeModelGroup(m, { shadows: false, live: false });
+    let made;
+    if (m.blocks.length >= BATCH_MIN) {
+      // big works: one merged mesh per colour instead of thousands of objects
+      const center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
+      const all = m.blocks.map((b, i) => i), opaque = i => m.colors[m.blocks[i].color].opacity >= 1;
+      const group = mergeBlocks(m, center, all, coverIndex(m.blocks), opaque, 0, false, false, false); // outlines would darken a small thumbnail
+      const box = new THREE.Box3().setFromObject(group);
+      made = { group, box, dispose: () => group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }) };
+    } else {
+      const g = makeModelGroup(m, { shadows: false, live: false });
+      made = { group: g.group, box: boundsOf(g.recs, 0), dispose: () => disposeGroup(g.recs) };
+    }
     thumbScene.add(made.group);
-    const { pos, target } = fitPose(thumbCam, boundsOf(made.recs, 0), new THREE.Vector3(...VIEWS.iso), 1.02);
+    const { pos, target } = fitPose(thumbCam, made.box, new THREE.Vector3(...VIEWS.iso), 1.02);
     thumbCam.position.copy(pos); thumbCam.lookAt(target);
     thumbR.render(thumbScene, thumbCam);
     const url = thumbR.domElement.toDataURL('image/png');
     thumbScene.remove(made.group);
-    disposeGroup(made.recs);
+    made.dispose();
     return url;
   }
 
@@ -790,6 +946,7 @@ const Scene = (() => {
     const target = state.exploded ? 1 : 0;
     explodeT += (target - explodeT) * (reduced ? 1 : 0.14);
     if (Math.abs(target - explodeT) < 0.0005) explodeT = target;
+    syncBatch();
     if (tween) {
       const t = Math.min(1, (now - tween.t0) / tween.dur), e = ease(t);
       camera.position.lerpVectors(tween.fp, tween.tp, e);

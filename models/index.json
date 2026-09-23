@@ -53,6 +53,19 @@
       "steps": 13,
       "layers": 14,
       "size": "10×4×14"
+    },
+    {
+      "id": "mont-saint-michel",
+      "file": "models/mont-saint-michel.json",
+      "name": "モン・サン＝ミシェル",
+      "nameEn": "Mont-Saint-Michel",
+      "description": "干潟に浮かぶ花崗岩の岩山に、城壁と村、ラ・メルヴェイユ、修道院付属教会と尖塔の大天使像までを1スタッド約3.5mで再現。100×90スタッド・高さ41段・10924ブロック。",
+      "author": "Claude",
+      "createdAt": "2026-09-24",
+      "blocks": 10924,
+      "steps": 200,
+      "layers": 41,
+      "size": "100×90×41"
     }
   ]
 }
