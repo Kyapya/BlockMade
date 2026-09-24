@@ -39,7 +39,7 @@ const works = files.map(f => {
     name: m.name, nameEn: m.nameEn, description: m.description,
     author: raw.author || '', createdAt: raw.createdAt || '',
     blocks: m.blocks.length, steps: m.steps.length, layers: m.layers,
-    size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${m.layers}`
+    size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${+(m.heightPlates / 3).toFixed(1)}`
   };
 }).sort((a, b) => (order.get(a.file) ?? 1e9) - (order.get(b.file) ?? 1e9) || (a.createdAt || '').localeCompare(b.createdAt || ''));
 writeFileSync(join(dir, 'index.json'), JSON.stringify({ format: 'blockmade.library', version: 1, works }, null, 2) + '\n');

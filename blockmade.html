@@ -411,7 +411,7 @@ function startApp() {
     return;
   }
 }
-const { normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, STANDARD_COLORS, BRICK_SIZES } = window.BlockModel;
+const { normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, STANDARD_COLORS, PARTS } = window.BlockModel;
 const DRAFTS_KEY = 'blockmade.drafts.v1', LAST_KEY = 'blockmade.lastWork.v1';
 
 /* ======================================================================
@@ -419,23 +419,45 @@ const DRAFTS_KEY = 'blockmade.drafts.v1', LAST_KEY = 'blockmade.lastWork.v1';
    ====================================================================== */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const typeLabel = t => String(t).replace(/x/gi, '×');
+/** Human label for a part: "2×4", "1×2×2", "スロープ 2×2", "プレート 2×6". */
+function partLabel(b) {
+  const dims = `${b.width}×${b.depth}`;
+  if (!b.shape || b.shape === 'brick') return b.height && b.height !== 3 ? `${dims}×${b.height / 3}` : dims;
+  const p = PARTS[b.shape];
+  return `${p ? p.ja : b.shape} ${dims}${p && b.height !== p.heights[0] ? `（高さ${b.height}）` : ''}`;
+}
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const colorOf = key => state.model.colors[key] || { name: key, hex: '#ff4fd8', opacity: 1 };
 const colorName = key => colorOf(key).name;
-const layerOf = b => b.h > 1 ? `${b.y + 1}–${b.y + b.h}` : `${b.y + 1}`;
+const layerOf = b => {
+  const lv = state.model.levels, idx = lv.map((y, i) => (y >= b.y && y < b.y + b.h ? i + 1 : 0)).filter(Boolean);
+  return idx.length > 1 ? `${idx[0]}–${idx[idx.length - 1]}` : `${idx[0] || b.level + 1}`;
+};
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 };
 
-function glyph(w, d, hex) {
-  const cols = Math.max(w, d), rows = Math.min(w, d), s = Math.min(7, Math.floor(58 / cols));
-  const W = cols * s + 2, H = rows * s + 2;
+function glyph(w, d, hex, shape = 'brick') {
+  // top view: depth horizontal (slopes descend to the right), width vertical
+  const p = PARTS[shape] || PARTS.brick, cols = Math.max(w, d), rows = Math.min(w, d), s = Math.min(7, Math.floor(58 / cols));
+  const W = cols * s + 2, H = rows * s + 2, horiz = d >= w;
+  const studAt = (i, j) => {
+    const sIdx = horiz ? i : j, last = horiz ? cols - 1 : rows - 1;
+    return p.top === 'all' || (p.top === 'back' && sIdx === 0) || (p.top === 'ends' && (sIdx === 0 || sIdx === last));
+  };
+  let body = p.round
+    ? `<ellipse cx="${W / 2}" cy="${H / 2}" rx="${W / 2 - .5}" ry="${H / 2 - .5}" fill="${hex}" stroke="rgba(0,0,0,.45)"/>`
+    : `<rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>`;
+  if (shape === 'slope') body += `<rect x="${1 + s}" y="1" width="${W - 2 - s}" height="${H - 2}" fill="url(#gl-sl)" opacity=".6"/>`;
+  if (shape === 'cone') body += `<circle cx="${W / 2}" cy="${H / 2}" r="${Math.min(W, H) / 5}" fill="rgba(255,255,255,.3)"/>`;
   let studs = '';
-  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="${(s * 0.31).toFixed(2)}" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
-  return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>${studs}</svg>`;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (studAt(i, j))
+    studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="${(s * 0.31).toFixed(2)}" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
+  const defs = shape === 'slope' ? `<defs><linearGradient id="gl-sl"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>` : '';
+  return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs}${body}${studs}</svg>`;
 }
+const glyphOf = (b, hex) => glyph(b.width, b.depth, hex, b.shape);
 const swatch = key => `<span class="sw" style="background:${esc(colorOf(key).hex)}"></span>`;
 
 /* ======================================================================
@@ -456,7 +478,7 @@ const curStep = () => state.model.steps[state.stepIdx];
    3. 3D SCENE (Three.js)
    ====================================================================== */
 const Scene = (() => {
-  const H = 1.2, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;
+  const H = 0.4, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;   // H = one plate (brick = 3 plates)
   const ACCENT = new THREE.Color('#f2b544'), SELECT = new THREE.Color('#5fd6e8'), WHITE = new THREE.Color('#ffffff'), BLACK = new THREE.Color('#000000');
   const viewEl = $('#viewport'), canvas = $('#gl');
 
@@ -514,27 +536,59 @@ const Scene = (() => {
 
   const geoCache = new Map();
   const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 20);
-  function boxGeo(sx, h, sz) {
-    const k = `${sx}|${h}|${sz}`;
-    if (!geoCache.has(k)) {
-      const g = new THREE.BoxGeometry(sx - GAP, h * H - GAP, sz - GAP);
-      geoCache.set(k, { box: g, edges: new THREE.EdgesGeometry(g) });
+  const PROFILE = { slope: 1, 'slope-inv': 1, arch: 1 };
+
+  /** Side profile (s along the part's depth, y up) of slopes and arches. */
+  function profileShape(kind, d, hh) {
+    const g = GAP / 2, y0 = -hh / 2 + g, y1 = hh / 2 - g, s0 = -d / 2 + g, s1 = d / 2 - g, back = -d / 2 + 1 - g;
+    const lip = Math.min(0.22, hh * 0.18), sh = new THREE.Shape();
+    if (kind === 'slope') { sh.moveTo(s0, y0); sh.lineTo(s1, y0); sh.lineTo(s1, y0 + lip); sh.lineTo(back, y1); sh.lineTo(s0, y1); }
+    else if (kind === 'slope-inv') { sh.moveTo(s0, y0); sh.lineTo(back, y0); sh.lineTo(s1, y1 - lip); sh.lineTo(s1, y1); sh.lineTo(s0, y1); }
+    else {
+      const rx = d / 2 - 1 + g, ry = Math.min(hh - 0.3, hh * 0.72);
+      sh.moveTo(s0, y0); sh.lineTo(-rx, y0);
+      for (let i = 1; i < 18; i++) { const t = Math.PI - Math.PI * i / 18; sh.lineTo(rx * Math.cos(t), y0 + ry * Math.sin(t)); }
+      sh.lineTo(rx, y0); sh.lineTo(s1, y0); sh.lineTo(s1, y1); sh.lineTo(s0, y1);
     }
-    return geoCache.get(k);
+    sh.closePath();
+    return sh;
+  }
+  /** Body geometry for a block. Profile parts are built facing +Z and rotated by the mesh. */
+  function bodyGeo(b) {
+    const hh = b.h * H, part = PARTS[b.shape] || PARTS.brick;
+    const k = PROFILE[b.shape] ? `${b.shape}|${b.width}|${b.depth}|${b.h}` : part.round ? `${b.shape}|${b.width}|${b.h}` : `box|${b.sx}|${b.h}|${b.sz}`;
+    if (geoCache.has(k)) return geoCache.get(k);
+    let body, rotate = false, edgeAngle = 1;
+    if (PROFILE[b.shape]) {
+      body = new THREE.ExtrudeGeometry(profileShape(b.shape, b.depth, hh), { depth: b.width - GAP, bevelEnabled: false, curveSegments: 8 });
+      body.rotateY(-Math.PI / 2);
+      body.translate((b.width - GAP) / 2, 0, 0);
+      rotate = true; edgeAngle = 20;
+    } else if (b.shape === 'cone') {
+      body = new THREE.CylinderGeometry(b.width * 0.22, b.width / 2 - 0.03, hh - GAP, 28);
+      edgeAngle = 40;
+    } else if (part.round) {
+      body = new THREE.CylinderGeometry(b.width / 2 - 0.03, b.width / 2 - 0.03, hh - GAP, 28);
+      edgeAngle = 40;
+    } else body = new THREE.BoxGeometry(b.sx - GAP, hh - GAP, b.sz - GAP);
+    const entry = { body, edges: new THREE.EdgesGeometry(body, edgeAngle), rotate };
+    geoCache.set(k, entry);
+    return entry;
   }
 
-  // All studs of one brick size merged into a single geometry (one draw call per brick).
+  // The studs of one block merged into a single geometry (one draw call per block).
   const studCache = new Map();
-  function studsGeo(sx, sz, h) {
-    const k = `${sx}|${h}|${sz}`;
+  function studsGeo(b) {
+    const rel = b.topCells.map(([cx, cz]) => [cx - b.x - b.sx / 2 + 0.5, cz - b.z - b.sz / 2 + 0.5]);
+    const k = `${b.h}|${rel.map(c => c.join(':')).join(';')}`;
     if (studCache.has(k)) return studCache.get(k);
     const one = studGeo.toNonIndexed();
     const src = one.attributes;
-    const n = src.position.count, total = n * sx * sz;
+    const n = src.position.count, total = n * rel.length;
     const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), uv = new Float32Array(total * 2);
     let o = 0;
-    for (let i = 0; i < sx; i++) for (let j = 0; j < sz; j++) {
-      const dx = i - sx / 2 + 0.5, dy = h * H / 2 + STUD_H / 2 - GAP / 2, dz = j - sz / 2 + 0.5;
+    const dy = b.h * H / 2 + STUD_H / 2 - GAP / 2;
+    for (const [dx, dz] of rel) {
       for (let v = 0; v < n; v++, o++) {
         pos[o * 3] = src.position.getX(v) + dx; pos[o * 3 + 1] = src.position.getY(v) + dy; pos[o * 3 + 2] = src.position.getZ(v) + dz;
         nor[o * 3] = src.normal.getX(v); nor[o * 3 + 1] = src.normal.getY(v); nor[o * 3 + 2] = src.normal.getZ(v);
@@ -595,10 +649,10 @@ const Scene = (() => {
       const c = m.colors[b.color];
       const base = { color: new THREE.Color(c.hex), roughness: c.roughness, metalness: c.metalness, transparent: c.opacity < 1, opacity: c.opacity, depthWrite: c.opacity >= 1 };
       const mat = new THREE.MeshStandardMaterial(base);
-      const g = boxGeo(b.sx, b.h, b.sz);
+      const g = bodyGeo(b);
       let meshMat = mat;
       const mats = [mat];
-      if (b.print && FACE_INDEX[b.print.face] !== undefined) {
+      if (b.print && !g.rotate && b.shape === 'brick' && FACE_INDEX[b.print.face] !== undefined) {
         const f = b.print.face, fw = f.includes('x') ? b.sz : b.sx, fh = b.h * H;
         const tex = makePrintTexture(b.print.pattern, fw, fh, c.hex, live);
         if (tex) {
@@ -609,17 +663,22 @@ const Scene = (() => {
         }
       }
       const bg = new THREE.Group();
-      const mesh = new THREE.Mesh(g.box, meshMat);
+      const mesh = new THREE.Mesh(g.body, meshMat);
       mesh.castShadow = mesh.receiveShadow = shadows;
       mesh.userData.blockId = b.id;
+      if (g.rotate) mesh.rotation.y = b.rotation * Math.PI / 180;
       bg.add(mesh);
-      const studMesh = new THREE.Mesh(studsGeo(b.sx, b.sz, b.h), mat);
-      studMesh.castShadow = shadows;
-      studMesh.userData.blockId = b.id;
-      bg.add(studMesh);
-      const studs = [studMesh];
+      const studs = [];
+      if (b.topCells.length) {
+        const studMesh = new THREE.Mesh(studsGeo(b), mat);
+        studMesh.castShadow = shadows;
+        studMesh.userData.blockId = b.id;
+        bg.add(studMesh);
+        studs.push(studMesh);
+      }
       const line = new THREE.LineSegments(g.edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
       line.raycast = () => {};
+      line.rotation.y = mesh.rotation.y;
       bg.add(line);
       const py = b.y * H + b.h * H / 2;
       bg.position.set(b.x + b.sx / 2 - center.x, py, b.z + b.sz / 2 - center.z);
@@ -658,9 +717,9 @@ const Scene = (() => {
       const b = r.b;
       let vis = state.mode === 'complete' || b.step <= step, ghost = false;
       if (L > 0) {
-        const li = L - 1, top = b.y + b.h - 1;
-        if (b.y > li) vis = false;
-        else if (top < li) { if (state.layerOnly) vis = false; else ghost = true; }
+        const ly = state.model.levels[L - 1];
+        if (b.y > ly) vis = false;
+        else if (b.y + b.h <= ly) { if (state.layerOnly) vis = false; else ghost = true; }
       }
       const isNew = vis && !ghost && state.mode === 'build' && b.step === step;
       const sel = b.id === state.selectedId;
@@ -710,7 +769,7 @@ const Scene = (() => {
     for (const r of list) {
       if (r.st && r.st.vis === false) continue;
       const b = r.b;
-      const y = r.baseY + expl * b.y * EXPLODE;
+      const y = r.baseY + expl * b.level * EXPLODE;
       const hx = b.sx / 2, hz = b.sz / 2, hy = b.h * H / 2;
       box.expandByPoint(new THREE.Vector3(r.group.position.x - hx, y - hy, r.group.position.z - hz));
       box.expandByPoint(new THREE.Vector3(r.group.position.x + hx, y + hy + STUD_H, r.group.position.z + hz));
@@ -804,7 +863,7 @@ const Scene = (() => {
         const t = (now - r.dropStart) / 480;
         if (t >= 1) r.dropStart = null; else drop = t < 0 ? DROP : (1 - easeOutBack(t)) * DROP;
       }
-      r.group.position.y = r.baseY + explodeT * r.b.y * EXPLODE + drop;
+      r.group.position.y = r.baseY + explodeT * r.b.level * EXPLODE + drop;
       const s = r.st;
       let col = BLACK, inten = 0;
       if (s.sel) { col = SELECT; inten = 0.5; }
@@ -898,10 +957,10 @@ function renderSteps() {
       <dl class="stats">
         <div><dt>ブロック</dt><dd>${m.blocks.length}</dd></div>
         <div><dt>Step</dt><dd>${m.steps.length}</dd></div>
-        <div><dt>高さ(段)</dt><dd>${m.layers}</dd></div>
+        <div><dt>高さ(ブロック)</dt><dd>${+(m.heightPlates / 3).toFixed(1)}</dd></div>
         <div><dt>底面</dt><dd>${w}×${d}</dd></div>
       </dl>
-      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色。「▶ 再生」で Step 1 から自動で組み上げます。</p>
+      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色 · ${m.layers} レイヤー。「▶ 再生」で Step 1 から自動で組み上げます。</p>
     </div>`;
     prev.disabled = true;
     next.textContent = state.stepIdx > 0 ? `Step ${state.stepIdx + 1} から再開 →` : 'Step 1 から組み立てる →';
@@ -915,7 +974,7 @@ function renderSteps() {
     <div class="step-num">Step ${i + 1}<small>/ ${m.steps.length}</small></div>
     <div class="step-title">${esc(s.title)}</div>
     <div class="sub">追加するブロック</div>
-    <ul class="adds">${groups.map(g => { const b = g[0], c = colorOf(b.color); return `<li>${glyph(b.width, b.depth, c.hex)}<span class="nm">${typeLabel(b.type)} ${esc(c.name)}</span><span class="ct">×${g.length}</span></li>`; }).join('')}</ul>
+    <ul class="adds">${groups.map(g => { const b = g[0], c = colorOf(b.color); return `<li>${glyphOf(b, c.hex)}<span class="nm">${partLabel(b)} ${esc(c.name)}</span><span class="ct">×${g.length}</span></li>`; }).join('')}</ul>
     <div class="sub">説明</div>
     <p class="desc">${esc(s.description || '—')}</p>
     <div class="progress" aria-hidden="true"><span style="width:${(placed / m.blocks.length * 100).toFixed(1)}%"></span></div>
@@ -942,7 +1001,7 @@ function renderParts() {
       html += `<div class="pgroup"><span>Step ${si + 1} · ${esc(s.title)}</span><span class="mono">${bs.length}</span></div><ul class="plist">`;
       for (const g of [...groupBlocks(bs, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
         const b = g[0];
-        html += row(partKeyOf(b, 'step'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+        html += row(partKeyOf(b, 'step'), glyphOf(b, colorOf(b.color).hex), `${partLabel(b)} ${esc(colorName(b.color))}`, '', g.length);
       }
       html += '</ul>';
     }
@@ -950,21 +1009,21 @@ function renderParts() {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => b.type).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
       const b = g[0], colsIn = [...new Set(g.map(x => x.color))];
-      html += row(b.type, glyph(b.width, b.depth, '#6d7784'), typeLabel(b.type), `<span class="swrow">${colsIn.map(swatch).join('')}</span> ${colsIn.length} 色`, g.length);
+      html += row(b.type, glyphOf(b, '#6d7784'), partLabel(b), `<span class="swrow">${colsIn.map(swatch).join('')}</span> ${colsIn.length} 色`, g.length);
     }
     html += '</ul>';
   } else if (v === 'color') {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => b.color).values()].sort((a, c) => c.length - a.length)) {
       const b = g[0], c = colorOf(b.color), typesIn = [...new Set(g.map(x => x.type))];
-      html += row(b.color, `<svg width="44" height="16" aria-hidden="true"><rect x=".5" y=".5" width="43" height="15" rx="3" fill="${esc(c.hex)}" stroke="rgba(0,0,0,.45)"/></svg>`, esc(c.name), typesIn.map(typeLabel).join(' · '), g.length);
+      html += row(b.color, `<svg width="44" height="16" aria-hidden="true"><rect x=".5" y=".5" width="43" height="15" rx="3" fill="${esc(c.hex)}" stroke="rgba(0,0,0,.45)"/></svg>`, esc(c.name), [...new Set(g.map(partLabel))].join(' · '), g.length);
     }
     html += '</ul>';
   } else {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]) || c.length - a.length)) {
       const b = g[0];
-      html += row(partKeyOf(b, 'type-color'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+      html += row(partKeyOf(b, 'type-color'), glyphOf(b, colorOf(b.color).hex), `${partLabel(b)} ${esc(colorName(b.color))}`, '', g.length);
     }
     html += '</ul>';
   }
@@ -1010,10 +1069,11 @@ function renderSelected() {
   const ab = state.check.above.get(b.id), be = state.check.below.get(b.id);
   el.innerHTML = `
     <div class="row"><span class="big">Block #${b.num}</span><span class="mono" style="color:var(--faint);font-size:12px">${esc(b.id)}</span></div>
-    <div class="row" style="margin-top:8px">${glyph(b.width, b.depth, c.hex)}<span>${typeLabel(b.type)} · ${esc(c.name)}</span></div>
+    <div class="row" style="margin-top:8px">${glyphOf(b, c.hex)}<span>${partLabel(b)} · ${esc(c.name)}</span></div>
     <dl>
       <dt>Position</dt><dd>X${b.x} Y${b.y} Z${b.z}</dd>
-      <dt>サイズ</dt><dd>${b.width}×${b.depth}×${b.height}（W×D×H）</dd>
+      <dt>部品</dt><dd>${esc((PARTS[b.shape] || PARTS.brick).ja)}（${esc(b.shape)}）</dd>
+      <dt>サイズ</dt><dd>${b.width}×${b.depth}・高さ ${b.height} プレート${b.height % 3 === 0 ? `（${b.height / 3} ブロック分）` : ''}</dd>
       <dt>向き</dt><dd>${b.rotation}°（占有 X${b.sx} × Z${b.sz}）</dd>
       <dt>色</dt><dd>${swatch(b.color)} ${esc(c.name)} <span style="color:var(--faint)">${esc(c.hex)}</span></dd>
       <dt>Step</dt><dd>Step ${si + 1}${si + 1 !== b.step ? `（step値 ${b.step}）` : ''} · ${esc(state.model.steps[si].title)}</dd>
@@ -1027,14 +1087,15 @@ function renderSelected() {
       <button class="btn" data-act="deselect">選択解除</button>
     </div>`;
   card.hidden = false;
-  card.innerHTML = `<button class="x" data-act="deselect" aria-label="選択解除">✕</button><div class="t">Block #${b.num}</div><div>${typeLabel(b.type)} ${esc(c.name)}</div><div class="mono" style="color:var(--muted)">X${b.x} Y${b.y} Z${b.z} · Step ${si + 1}</div>`;
+  card.innerHTML = `<button class="x" data-act="deselect" aria-label="選択解除">✕</button><div class="t">Block #${b.num}</div><div>${partLabel(b)} ${esc(c.name)}</div><div class="mono" style="color:var(--muted)">X${b.x} Y${b.y} Z${b.z} · Step ${si + 1}</div>`;
 }
 
 function renderLayerBar() {
   const m = state.model, r = $('#layer-range');
   r.max = m.layers;
   r.value = state.layer;
-  const count = state.layer ? m.blocks.filter(b => b.y <= state.layer - 1 && b.y + b.h - 1 >= state.layer - 1).length : m.blocks.length;
+  const ly = state.layer ? m.levels[state.layer - 1] : 0;
+  const count = state.layer ? m.blocks.filter(b => b.y <= ly && b.y + b.h > ly).length : m.blocks.length;
   $('#layer-val').textContent = state.layer ? `Layer ${state.layer} / ${m.layers} (${count})` : `全レイヤー (${m.layers})`;
   $('#layer-only').checked = state.layerOnly;
   $('#layer-only').disabled = !state.layer;
@@ -1112,7 +1173,8 @@ function select(id, { reveal = false, fromView = false } = {}) {
   if (id && reveal) {
     const b = state.model.byId.get(id);
     if (state.mode === 'build' && b.step > curStep().step) state.stepIdx = state.model.steps.findIndex(s => s.step === b.step);
-    if (state.layer && (b.y > state.layer - 1 || (state.layerOnly && b.y + b.h - 1 < state.layer - 1))) { state.layer = 0; state.layerOnly = false; }
+    const ly = state.layer ? state.model.levels[state.layer - 1] : 0;
+    if (state.layer && (b.y > ly || (state.layerOnly && b.y + b.h <= ly))) { state.layer = 0; state.layerOnly = false; }
   }
   if (id && (fromView || reveal)) state.tab = 'selected';
   refresh();
@@ -1194,7 +1256,7 @@ function cardHTML(key, meta, extraActs = '') {
 }
 function metaOf(raw) {
   const m = normalizeModel(raw);
-  return { name: m.name, nameEn: m.nameEn, blocks: m.blocks.length, steps: m.steps.length, size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${m.layers}` };
+  return { name: m.name, nameEn: m.nameEn, blocks: m.blocks.length, steps: m.steps.length, size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${+(m.heightPlates / 3).toFixed(1)}` };
 }
 function renderLibrary() {
   $('#lib-repo-count').textContent = `${library.repo.length} 作品`;
@@ -1268,11 +1330,11 @@ let genCtl = null, genTimer = 0;
 // Brick budget and matching scale hints for the AI. Bigger models get more layers
 // and steps, and are told to spend the extra bricks on detail rather than bulk.
 const SIZES = {
-  s:    { bricks: 'about 30-60 bricks', layers: '6-10', steps: '6-12' },
-  m:    { bricks: 'about 60-120 bricks', layers: '8-16', steps: '10-20' },
-  l:    { bricks: 'about 120-200 bricks', layers: '12-22', steps: '15-30' },
-  xl:   { bricks: 'about 200-350 bricks', layers: '16-30', steps: '20-40' },
-  auto: { bricks: 'as many bricks as the design needs to look its best (typically 80-250; never pad it)', layers: '8-30', steps: '10-40' }
+  s:    { bricks: 'about 30-60 bricks', tall: '6-10', steps: '6-12' },
+  m:    { bricks: 'about 60-120 bricks', tall: '8-16', steps: '10-20' },
+  l:    { bricks: 'about 120-200 bricks', tall: '12-22', steps: '15-30' },
+  xl:   { bricks: 'about 200-350 bricks', tall: '16-30', steps: '20-40' },
+  auto: { bricks: 'as many bricks as the design needs to look its best (typically 80-250; never pad it)', tall: '8-30', steps: '10-40' }
 };
 const genOpts = { size: 'm', tier: 'default' };
 
@@ -1280,7 +1342,10 @@ const genOpts = { size: 'm', tier: 'default' };
 // The AI first writes a short plan, then the bricks a few steps at a time, one
 // brick per line: a reply cut off by the length limit keeps its complete lines
 // and the AI is asked to continue after them.
-const BRICK_LINE = /^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*(?:,\s*([+-][xz]))?\s*$/i;
+const BRICK_LINE = /^\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*(?:,\s*([+-][xz]))?\s*$/i;
+/** regex match -> [shape, w, d, h, x, y, z, rotation, color, step, face?] */
+const lineToBrick = mm => { const a = mm.slice(1, 11).map((v, i) => (i === 0 || i === 8) ? v.toLowerCase() : +v); if (mm[11]) a.push(mm[11].toLowerCase()); return a; };
+const STEP_I = 9;
 function parseFix(text) {
   const remove = new Set(), add = [];
   let adding = false;
@@ -1291,30 +1356,40 @@ function parseFix(text) {
     if (r) { for (const n of r[1].split(/[\s,]+/)) if (/^\d+$/.test(n)) remove.add(+n); continue; }
     if (/^ADD:?$/i.test(t)) { adding = true; continue; }
     const mm = adding && t.match(BRICK_LINE);
-    if (mm) { const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v); if (mm[10]) a.push(mm[10].toLowerCase()); add.push(a); }
+    if (mm) add.push(lineToBrick(mm));
   }
   return { remove, add };
 }
 
 function rulesText() {
-  return `COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
+  const sizes = sh => PARTS[sh].sizes.map(x => x.join('x')).join(' ');
+  return `COORDINATES: X = left/right and Z = back→front in studs (+Z is the FRONT that viewers see first). Y = height in PLATES (y = 0 is the ground; a brick is 3 plates tall, a plate or tile is 1). A part occupies x…x+sx, z…z+sz, y…y+h.
 
-BRICK LINE: w,d,h,x,y,z,rotation,color,step
-- (w, d) with w ≤ d must be one of: ${BRICK_SIZES.map(s => s.join('x')).join(' ')}. h is 1 (or 2 only for a 1x2 brick that is two layers tall).
-- rotation 0: w runs along X and d along Z (sx = w, sz = d). rotation 90: d runs along X and w along Z (sx = d, sz = w).
-- color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
+PART LINE: shape,w,d,h,x,y,z,rotation,color,step
+PARTS (w x d sizes; h in plates):
+- brick: ${sizes('brick')} (h 3; h 6 = double-height brick)
+- plate: ${sizes('plate')} (h 1) — thin layers, fine height steps, wide bases
+- tile: ${sizes('tile')} (h 1) — smooth top with no studs: nothing can attach on top; use for finishing surfaces
+- slope: ${sizes('slope')} (h 3) — 45° roof slope. Only the first row along its depth (the high back edge) has studs; the rest is the sloped face, which descends in the rotation direction. Nothing attaches on the sloped face.
+- slope-inv: ${sizes('slope-inv')} (h 3) — upside-down slope for overhangs: full studs on top, only its first row rests on parts below.
+- round-brick: ${sizes('round-brick')} (h 3), round-plate: ${sizes('round-plate')} (h 1), round-tile: ${sizes('round-tile')} (h 1, no studs) — cylinders for poles, trunks, lights, wheels.
+- cone: 1x1 (h 3), 2x2 (h 6) — tapered tip; nothing attaches on top.
+- arch: ${sizes('arch')} (h 3) — open underneath; rests only on its two end studs. Good for doors, bridges, windows.
+ROTATION: 0 → the part's depth runs toward +Z (a slope's face looks to the front); 90 → +X; 180 → -Z; 270 → -X. Footprint: rotation 0/180: sx = w, sz = d; 90/270: sx = d, sz = w.
+color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
 
 PHYSICS RULES (checked automatically):
-1. No two bricks may overlap in space.
-2. Two bricks are CONNECTED only when one sits directly on top of the other (lower.y + lower.h == upper.y) AND their footprints overlap by at least one stud. Side by side is NOT connected.
-3. Every brick needs a brick directly below it (or directly above it) that overlaps its footprint, so that everything connects down to y = 0. Overhangs are fine when part of the brick rests on something.
-4. Use running bond: stagger joints between layers so each layer ties the layer below together.
-5. Build bottom-up: a brick must attach to the ground or to bricks placed in earlier steps.`;
+1. No two parts may overlap in space.
+2. Two parts are CONNECTED only when the upper one sits exactly on the lower one (lower.y + lower.h == upper.y) AND a stud of the lower part meets the underside of the upper part (see which cells have studs above). Side by side is NOT connected.
+3. Every part must connect through such connections down to a part at y = 0. Overhangs are fine when part of it rests on studs.
+4. Stagger joints between layers so upper parts tie the parts below together.
+5. Build bottom-up: a part must attach to the ground or to parts placed in earlier steps.
+TIPS: slopes for roofs and tapering shapes, plates to fine-tune heights, tiles for smooth tops, round parts and cones for poles, trees and spires, arches for openings.`;
 }
 function buildPlanPrompt(request) {
   const size = SIZES[genOpts.size];
   return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
-Use ${size.bricks}, about ${size.layers} layers tall, in ${size.steps} build steps. Make it clearly recognizable from the front, with good colors and proportions; spend bricks on recognizable detail and silhouette, not on hidden solid fill.
+Use ${size.bricks} (parts of any kind count), about ${size.tall} bricks tall (${size.tall.split('-').map(n => n * 3).join('-')} plates), in ${size.steps} build steps. Make it clearly recognizable from the front, with good colors and proportions; spend bricks on recognizable detail and silhouette, not on hidden solid fill.
 
 ${rulesText()}
 
@@ -1323,10 +1398,10 @@ OUTPUT exactly this line format, nothing else:
 NAME: 日本語の作品名
 NAME_EN: English name
 DESC: 日本語で1文の説明
-SIZE: footprint WxD studs centered around x=0..W, z=0..D; H layers; main colors
-STEP 1 | layers 0-1 | 24 | 短い日本語の見出し | 日本語の手順説明（使うブロックの色と大きさを書く）
-STEP 2 | layers 2-3 | 18 | … | …
-(one line per step: step number | layer range it builds | approximate brick count | title | instruction; steps go bottom-up)
+SIZE: footprint WxD studs (x=0..W, z=0..D); height in plates; main colors; which special parts you will use
+STEP 1 | y 0-5 | 24 | 短い日本語の見出し | 日本語の手順説明（使う部品の種類・色・大きさを書く）
+STEP 2 | y 6-11 | 18 | … | …
+(one line per step: step number | height range in plates it builds | approximate part count | title | instruction; steps go bottom-up)
 END`;
 }
 function buildChunkPrompt(request, planText, placed, chunk) {
@@ -1341,8 +1416,8 @@ ${rulesText()}
 BRICKS ALREADY PLACED (steps before ${first}), one per line:
 ${placed.length ? placed.map(a => a.join(',')).join('\n') : '(none yet — this is the first step)'}
 
-Now output ONLY the bricks for STEP ${first}${last !== first ? `–${last}` : ''} (${chunk.map(s => `step ${s.step}: layers ${s.from}-${s.to}, ~${s.est} bricks, ${s.title}`).join('; ')}), about ${est} bricks in total. Every new brick must rest on a brick already placed or on another new brick from a lower layer (or on the ground at y=0), and must not overlap any brick. Use the step number from the plan as the last value.
-OUTPUT: one brick per line (w,d,h,x,y,z,rotation,color,step), nothing else, then END.`;
+Now output ONLY the bricks for STEP ${first}${last !== first ? `–${last}` : ''} (${chunk.map(s => `step ${s.step}: y ${s.from}-${s.to} (plates), ~${s.est} parts, ${s.title}`).join('; ')}), about ${est} bricks in total. Every new brick must rest on a brick already placed or on another new brick from a lower layer (or on the ground at y=0), and must not overlap any brick. Use the step number from the plan as the last value.
+OUTPUT: one brick per line (shape,w,d,h,x,y,z,rotation,color,step), nothing else, then END.`;
 }
 
 /** Ask Claude and keep asking it to continue until the reply contains END.
@@ -1410,7 +1485,7 @@ function parsePlan(text) {
     if ((mm = t.match(/^NAME:\s*(.*)$/i))) out.name = mm[1].trim();
     else if ((mm = t.match(/^NAME_EN:\s*(.*)$/i))) out.nameEn = mm[1].trim();
     else if ((mm = t.match(/^DESC:\s*(.*)$/i))) out.description = mm[1].trim();
-    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*(?:layers?\s*)?(\d+)\s*(?:[-–~]\s*(\d+))?\s*\|\s*~?\s*(\d+)[^|]*\|\s*([^|]*)\|?\s*(.*)$/i)))
+    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*(?:layers?|plates?|y)?\s*(\d+)\s*(?:[-–~]\s*(\d+))?\s*\|\s*~?\s*(\d+)[^|]*\|\s*([^|]*)\|?\s*(.*)$/i)))
       out.steps.push({ step: +mm[1], from: +mm[2], to: mm[3] !== undefined ? +mm[3] : +mm[2], est: Math.max(1, +mm[4]), title: mm[5].trim(), description: mm[6].trim() });
   }
   out.steps.sort((a, b) => a.step - b.step);
@@ -1426,8 +1501,7 @@ function chunkSteps(steps) {
   if (cur.length) chunks.push(cur);
   return chunks;
 }
-const brickLines = t => t.split('\n').map(l => l.match(BRICK_LINE)).filter(Boolean)
-  .map(mm => { const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v); if (mm[10]) a.push(mm[10].toLowerCase()); return a; });
+const brickLines = t => t.split('\n').map(l => l.match(BRICK_LINE)).filter(Boolean).map(lineToBrick);
 
 /** One sampling call with a single retry on an empty answer (a long silent
  *  think can end with no text); the retry uses the quick tier. */
@@ -1477,7 +1551,7 @@ async function generate() {
       const text = await askWithRetry([{ role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) }], opts,
         t => line.meta(`${brickLines(t).length} ブロック`));
       const allowed = new Set(chunk.map(s => s.step));
-      let fresh = brickLines(text).map(br => { if (!allowed.has(br[8])) br[8] = br[8] < a ? a : b; return br; });
+      let fresh = brickLines(text).map(br => { if (!allowed.has(br[STEP_I])) br[STEP_I] = br[STEP_I] < a ? a : b; return br; });
       // local check of this part only
       const partIssues = () => {
         const m = normalizeModel(fromCompact({ ...design, blocks: [...design.blocks, ...fresh] }, extra));
@@ -1495,10 +1569,10 @@ async function generate() {
           const fixText = await askWithRetry([
             { role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) },
             { role: 'assistant', content: fresh.map(x => x.join(',')).join('\n') + '\nEND' },
-            { role: 'user', content: `The checker found problems in your new bricks (#N = the N-th line of your answer):\n${issues.slice(0, 30).join('\n')}\n\nReply ONLY with the changes, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }
+            { role: 'user', content: `The checker found problems in your new bricks (#N = the N-th line of your answer):\n${issues.slice(0, 30).join('\n')}\n\nReply ONLY with the changes, then END:\nREMOVE n,n,n\nADD\nshape,w,d,h,x,y,z,rotation,color,step\nEND` }
           ], opts, () => {});
           const fx = parseFix(fixText);
-          fresh = [...fresh.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!allowed.has(br[8])) br[8] = b; return br; })];
+          fresh = [...fresh.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!allowed.has(br[STEP_I])) br[STEP_I] = b; return br; })];
           issues = partIssues();
         } catch (e) { if (e && e.code === 'cancelled') throw e; }
       }
@@ -1517,10 +1591,10 @@ async function generate() {
       const issues = describeIssues(m, c, 30).map(t => t.replace(/block_0*(\d+)/g, '#$1'));
       chk.set(`全体の構造チェック: ${issues.length} 件の問題を直してもらっています…`);
       try {
-        const fixText = await askWithRetry([{ role: 'user', content: `This LEGO-style model of 「${request}」 has structural problems.\n\n${rulesText()}\n\nALL BRICKS (#N = N-th line):\n${design.blocks.map((x, i) => `#${i + 1} ${x.join(',')}`).join('\n')}\n\nPROBLEMS:\n${issues.join('\n')}\n\nA group that is "not connected" needs a brick above or below that spans the joint to the main model. Reply ONLY with the changes that fix every problem, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }], opts, () => {});
+        const fixText = await askWithRetry([{ role: 'user', content: `This LEGO-style model of 「${request}」 has structural problems.\n\n${rulesText()}\n\nALL BRICKS (#N = N-th line):\n${design.blocks.map((x, i) => `#${i + 1} ${x.join(',')}`).join('\n')}\n\nPROBLEMS:\n${issues.join('\n')}\n\nA group that is "not connected" needs a brick above or below that spans the joint to the main model. Reply ONLY with the changes that fix every problem, then END:\nREMOVE n,n,n\nADD\nshape,w,d,h,x,y,z,rotation,color,step\nEND` }], opts, () => {});
         const fx = parseFix(fixText);
         const lastStep = design.steps.length ? design.steps[design.steps.length - 1].step : 1;
-        design.blocks = [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!design.steps.some(st => st.step === br[8])) br[8] = lastStep; return br; })];
+        design.blocks = [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!design.steps.some(st => st.step === br[STEP_I])) br[STEP_I] = lastStep; return br; })];
         raw = fromCompact(design, extra); m = normalizeModel(raw); c = validateModel(m);
       } catch (e) { if (e && e.code === 'cancelled') throw e; }
     }
@@ -1637,7 +1711,7 @@ canvas.addEventListener('pointermove', e => {
     canvas.style.cursor = id ? 'pointer' : '';
     if (id) {
       const b = state.model.byId.get(id), rect = $('#viewport').getBoundingClientRect();
-      tip.innerHTML = `<b>#${b.num}</b> ${typeLabel(b.type)} ${esc(colorName(b.color))} · Step ${state.model.steps.findIndex(s => s.step === b.step) + 1}`;
+      tip.innerHTML = `<b>#${b.num}</b> ${partLabel(b)} ${esc(colorName(b.color))} · Step ${state.model.steps.findIndex(s => s.step === b.step) + 1}`;
       tip.style.left = (e.clientX - rect.left) + 'px';
       tip.style.top = (e.clientY - rect.top) + 'px';
       tip.hidden = false;

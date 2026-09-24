@@ -397,7 +397,11 @@ button{cursor:pointer}
      tools/build.mjs inlines both into a single self-contained page. -->
 <script>
 /* BlockMade model core — pure data functions shared by the browser app and
-   the command-line tools (node tools/validate.mjs). No DOM, no Three.js. */
+   the command-line tools (node tools/validate.mjs). No DOM, no Three.js.
+
+   Units (format version 2): x / z in studs, y / height in PLATES
+   (a brick is 3 plates tall). Version 1 files used brick layers for y and
+   height and are converted on load. */
 (function (root) {
 'use strict';
 
@@ -431,8 +435,37 @@ const STANDARD_COLORS = {
   'trans-green': { name: 'Trans Green', hex: '#5fe07a', opacity: 0.6 }
 };
 
-/** Real-world brick footprints the designer (human or AI) may use. */
-const BRICK_SIZES = [[1,1],[1,2],[1,3],[1,4],[1,6],[1,8],[2,2],[2,3],[2,4],[2,6],[2,8],[2,10],[2,12],[4,4],[4,6]];
+/** Part catalog: the common LEGO element families.
+ *  sizes: [w, d] with w = width across, d = depth (for slopes and arches d runs
+ *  along the slope / span). heights are in plates.
+ *  top: which cells carry studs; bottom: which cells can take studs from below.
+ *  'all' | 'back' (the first row, s = 0) | 'ends' (first and last row) | 'none'. */
+const PARTS = {
+  brick:        { ja: 'ブロック',       en: 'Brick',          heights: [3, 6], top: 'all',  bottom: 'all',
+                  sizes: [[1,1],[1,2],[1,3],[1,4],[1,6],[1,8],[2,2],[2,3],[2,4],[2,6],[2,8],[2,10],[2,12],[4,4],[4,6]] },
+  plate:        { ja: 'プレート',       en: 'Plate',          heights: [1],    top: 'all',  bottom: 'all',
+                  sizes: [[1,1],[1,2],[1,3],[1,4],[1,6],[1,8],[2,2],[2,3],[2,4],[2,6],[2,8],[2,10],[2,12],[4,4],[4,6],[4,8],[6,6],[6,8],[8,8]] },
+  tile:         { ja: 'タイル',         en: 'Tile',           heights: [1],    top: 'none', bottom: 'all',
+                  sizes: [[1,1],[1,2],[1,3],[1,4],[1,6],[1,8],[2,2],[2,4]] },
+  slope:        { ja: 'スロープ',       en: 'Slope',          heights: [3],    top: 'back', bottom: 'all',
+                  sizes: [[1,2],[2,2],[1,3],[2,3],[2,4],[4,2],[4,3]] },
+  'slope-inv':  { ja: '逆スロープ',     en: 'Inverted Slope', heights: [3],    top: 'all',  bottom: 'back',
+                  sizes: [[1,2],[2,2],[1,3],[2,3]] },
+  'round-brick':{ ja: '丸ブロック',     en: 'Round Brick',    heights: [3],    top: 'all',  bottom: 'all', round: true,
+                  sizes: [[1,1],[2,2]] },
+  'round-plate':{ ja: '丸プレート',     en: 'Round Plate',    heights: [1],    top: 'all',  bottom: 'all', round: true,
+                  sizes: [[1,1],[2,2]] },
+  'round-tile': { ja: '丸タイル',       en: 'Round Tile',     heights: [1],    top: 'none', bottom: 'all', round: true,
+                  sizes: [[1,1],[2,2]] },
+  cone:         { ja: 'コーン',         en: 'Cone',           heights: [3, 6], top: 'none', bottom: 'all', round: true,
+                  sizes: [[1,1],[2,2]] },
+  arch:         { ja: 'アーチ',         en: 'Arch',           heights: [3, 9], top: 'all',  bottom: 'ends',
+                  sizes: [[1,3],[1,4],[1,6],[1,8]] }
+};
+const SHAPES = Object.keys(PARTS);
+
+/** Brick footprints kept for older callers. */
+const BRICK_SIZES = PARTS.brick.sizes;
 
 function toInt(v, name, where) {
   const n = Number(v);
@@ -440,9 +473,37 @@ function toInt(v, name, where) {
   return n;
 }
 
+/** Default type label, e.g. "2x4", "plate-2x4", "slope-2x2", "brick-1x2x2". */
+function typeName(shape, w, d, h) {
+  if (shape === 'brick') return `${w}x${d}${h !== 3 ? 'x' + (h / 3) : ''}`;
+  return `${shape}-${w}x${d}${h !== PARTS[shape].heights[0] ? 'h' + h : ''}`;
+}
+
+/** Map local part cell (u across, s along) to world stud cell for a rotation.
+ *  rotation 0: s runs toward +Z, 90: +X, 180: -Z, 270: -X. */
+function cellXZ(b, u, s) {
+  switch (b.rotation) {
+    case 90: return [b.x + s, b.z + u];
+    case 180: return [b.x + u, b.z + (b.depth - 1 - s)];
+    case 270: return [b.x + (b.depth - 1 - s), b.z + u];
+    default: return [b.x + u, b.z + s];
+  }
+}
+function cellsFor(b, which) {
+  const out = [];
+  if (which === 'none') return out;
+  for (let u = 0; u < b.width; u++) for (let s = 0; s < b.depth; s++) {
+    if (which === 'back' && s !== 0) continue;
+    if (which === 'ends' && s !== 0 && s !== b.depth - 1) continue;
+    out.push(cellXZ(b, u, s));
+  }
+  return out;
+}
+
 function normalizeModel(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('JSONのトップレベルはオブジェクトである必要があります。');
   if (!Array.isArray(raw.blocks) || raw.blocks.length === 0) throw new Error('"blocks" 配列（1個以上）が必要です。');
+  const v1 = !(Number(raw.version) >= 2);          // version 1: y and height in bricks
   const warnings = [];
   const colors = {};
   for (const [k, c] of Object.entries(raw.colors || {})) {
@@ -459,11 +520,20 @@ function normalizeModel(raw) {
     const id = String(b.id);
     if (ids.has(id)) throw new Error(`ブロックID "${id}" が重複しています。`);
     ids.add(id);
+    const shape = String(b.shape || 'brick');
+    if (!PARTS[shape]) throw new Error(`${id}: 形状 "${shape}" は使えません（${SHAPES.join(' / ')}）。`);
+    const part = PARTS[shape];
     const width = toInt(b.width, 'width', id), depth = toInt(b.depth, 'depth', id);
-    const height = toInt(b.height ?? 1, 'height', id);
+    let height = b.height === undefined || b.height === null ? (v1 ? 1 : part.heights[0]) : toInt(b.height, 'height', id);
+    let y = toInt(b.y, 'y', id);
+    if (v1) { height *= 3; y *= 3; }
     if (width < 1 || depth < 1 || height < 1) throw new Error(`${id}: width / depth / height は1以上にしてください。`);
     const rotation = ((toInt(b.rotation ?? 0, 'rotation', id) % 360) + 360) % 360;
     if (rotation % 90 !== 0) throw new Error(`${id}: rotation は 0 / 90 / 180 / 270 のいずれかです。`);
+    if ((shape === 'slope' || shape === 'slope-inv') && depth < 2) throw new Error(`${id}: スロープの depth は2以上です（1列目が上面、残りが斜面）。`);
+    if (shape === 'arch' && depth < 3) throw new Error(`${id}: アーチの depth は3以上です。`);
+    const known = part.sizes.some(([w, d]) => w === width && d === depth) && part.heights.includes(height);
+    if (!known) warnings.push(`${id}: ${part.ja} ${width}×${depth}（高さ${height}プレート）は実在の部品一覧にないサイズです。`);
     const swap = rotation === 90 || rotation === 270;
     const color = String(b.color);
     if (!colors[color]) {
@@ -473,15 +543,18 @@ function normalizeModel(raw) {
       else { warnings.push(`${id}: 色 "${color}" が定義されていないため仮の色で表示します。`); colors[color] = { name: color, hex: '#ff4fd8', opacity: 1, metalness: 0, roughness: 0.5 }; }
     }
     const numMatch = id.match(/(\d+)\s*$/);
-    return {
-      id, type: b.type ? String(b.type) : `${width}x${depth}${height !== 1 ? 'x' + height : ''}`,
+    const nb = {
+      id, shape, type: b.type ? String(b.type) : typeName(shape, width, depth, height),
       width, depth, height,
-      x: toInt(b.x, 'x', id), y: toInt(b.y, 'y', id), z: toInt(b.z, 'z', id),
+      x: toInt(b.x, 'x', id), y, z: toInt(b.z, 'z', id),
       rotation, color, step: toInt(b.step, 'step', id),
       print: b.print && typeof b.print === 'object' ? { pattern: String(b.print.pattern || ''), face: String(b.print.face || '+z') } : null,
       sx: swap ? depth : width, sz: swap ? width : depth, h: height,
       num: numMatch ? parseInt(numMatch[1], 10) : i + 1, index: i
     };
+    nb.topCells = cellsFor(nb, part.top);
+    nb.bottomCells = cellsFor(nb, part.bottom);
+    return nb;
   });
   const metaByStep = new Map();
   for (const s of (Array.isArray(raw.steps) ? raw.steps : [])) if (s && s.step !== undefined) metaByStep.set(Number(s.step), s);
@@ -491,17 +564,22 @@ function normalizeModel(raw) {
     return { step: n, title: m.title || `Step ${n}`, description: m.description || '' };
   });
   for (const n of metaByStep.keys()) if (!stepNums.includes(n)) warnings.push(`Step ${n} には追加ブロックがありません。`);
-  const layers = Math.max(...blocks.map(b => b.y + b.h));
+  // layers = distinct bottom heights, so a model of bricks keeps one layer per brick course
+  const levels = [...new Set(blocks.map(b => b.y))].sort((a, b) => a - b);
+  const levelIndex = new Map(levels.map((y, i) => [y, i]));
+  for (const b of blocks) b.level = levelIndex.get(b.y);
+  const top = Math.max(...blocks.map(b => b.y + b.h));
   const minX = Math.min(...blocks.map(b => b.x)), maxX = Math.max(...blocks.map(b => b.x + b.sx));
   const minZ = Math.min(...blocks.map(b => b.z)), maxZ = Math.max(...blocks.map(b => b.z + b.sz));
   return {
-    format: 'blockmade.model', version: 1,
+    format: 'blockmade.model', version: 2,
     name: String(raw.name || 'Untitled'), nameEn: raw.nameEn ? String(raw.nameEn) : '',
     description: String(raw.description || ''),
     author: raw.author ? String(raw.author) : '',
     prompt: raw.prompt ? String(raw.prompt) : '',
     createdAt: raw.createdAt ? String(raw.createdAt) : '',
-    colors, steps, blocks, warnings, layers,
+    colors, steps, blocks, warnings,
+    levels, layers: levels.length, heightPlates: top,
     bounds: { minX, maxX, minZ, maxZ },
     byId: new Map(blocks.map(b => [b.id, b]))
   };
@@ -509,6 +587,13 @@ function normalizeModel(raw) {
 
 const overlapXZ = (a, b) => a.x < b.x + b.sx && b.x < a.x + a.sx && a.z < b.z + b.sz && b.z < a.z + a.sz;
 const overlapY = (a, b) => a.y < b.y + b.h && b.y < a.y + a.h;
+/** upper sits on lower and at least one stud of lower meets a socket of upper. */
+function studsMeet(upper, lower) {
+  if (upper.y !== lower.y + lower.h) return false;
+  if (!lower.topCells.length || !upper.bottomCells.length) return false;
+  const top = new Set(lower.topCells.map(c => c[0] + ',' + c[1]));
+  return upper.bottomCells.some(c => top.has(c[0] + ',' + c[1]));
+}
 
 /** Structure checks: connection, support, collision, build order. */
 function validateModel(m) {
@@ -519,8 +604,8 @@ function validateModel(m) {
     const a = B[i], b = B[j];
     if (!overlapXZ(a, b)) continue;
     if (overlapY(a, b)) { collisions.push([a.id, b.id]); continue; }
-    if (a.y === b.y + b.h) { below.get(a.id).push(b.id); above.get(b.id).push(a.id); }
-    else if (b.y === a.y + a.h) { below.get(b.id).push(a.id); above.get(a.id).push(b.id); }
+    if (studsMeet(a, b)) { below.get(a.id).push(b.id); above.get(b.id).push(a.id); }
+    else if (studsMeet(b, a)) { below.get(b.id).push(a.id); above.get(a.id).push(b.id); }
   }
   const neighbours = id => [...above.get(id), ...below.get(id)];
 
@@ -574,7 +659,7 @@ function validateModel(m) {
 /** Plain-language list of problems, for humans and for an AI repair prompt. */
 function describeIssues(m, c, max = 40) {
   const out = [];
-  const fmt = id => { const b = m.byId.get(id); return `${id}(${b.type} x${b.x} y${b.y} z${b.z} step${b.step})`; };
+  const fmt = id => { const b = m.byId.get(id); return `${id}(${b.shape} ${b.width}x${b.depth} x${b.x} y${b.y} z${b.z} step${b.step})`; };
   if (!c.collisions.ok) for (const [a, b] of c.collisions.pairs) out.push(`COLLISION: ${fmt(a)} と ${fmt(b)} が同じ空間を占有`);
   if (!c.supported.ok) for (const id of c.supported.floating) out.push(`FLOATING: ${fmt(id)} は地面までつながっていない`);
   if (!c.connected.ok) for (const g of c.connected.groups.slice(1)) out.push(`DISCONNECTED GROUP: ${g.slice(0, 8).join(', ')}${g.length > 8 ? ' …' : ''} が本体と接続されていない`);
@@ -601,8 +686,6 @@ function autoRepair(raw) {
   }
   let m = normalizeModel(r), c = validateModel(m);
   if (!c.order.ok) {
-    // Re-sequence: walk the steps; blocks that cannot be placed yet move to the
-    // earliest later step where they attach. Sandwich cases move the upper block later.
     const meta = new Map(m.steps.map(s => [s.step, s]));
     const stepOf = new Map(m.blocks.map(b => [b.id, b.step]));
     for (let guard = 0; guard < 20 && !c.order.ok; guard++) {
@@ -625,23 +708,24 @@ function autoRepair(raw) {
   return { raw: r, removed };
 }
 
-/** Convert the compact array format the AI writes into a full model.
- *  blocks: [w, d, h, x, y, z, rotation, colorKey, step, printFace?] */
+/** Convert the compact line format the AI writes into a full model (version 2).
+ *  blocks: [shape, w, d, h, x, y, z, rotation, colorKey, step, printFace?] */
 function fromCompact(c, extra = {}) {
   if (!c || !Array.isArray(c.blocks)) throw new Error('AIの出力に blocks 配列がありません。');
   const blocks = c.blocks.map((a, i) => {
-    if (!Array.isArray(a) || a.length < 9) throw new Error(`blocks[${i}] の形式が不正です。`);
-    const [w, d, h, x, y, z, rot, color, step, face] = a;
-    const b = { id: `block_${String(i + 1).padStart(3, '0')}`, width: w, depth: d, height: h || 1, x, y, z, rotation: rot || 0, color: String(color), step };
-    b.type = `${w}x${d}${(h || 1) !== 1 ? 'x' + h : ''}`;
-    if (face && /^[+-][xz]$/.test(face)) b.print = { pattern: 'clock', face };
+    if (!Array.isArray(a) || a.length < 10) throw new Error(`blocks[${i}] の形式が不正です。`);
+    const [shape, w, d, h, x, y, z, rot, color, step, face] = a;
+    const sh = PARTS[shape] ? shape : 'brick';
+    const hh = h || PARTS[sh].heights[0];
+    const b = { id: `block_${String(i + 1).padStart(3, '0')}`, shape: sh, type: typeName(sh, w, d, hh), width: w, depth: d, height: hh, x, y, z, rotation: rot || 0, color: String(color), step };
+    if (face && /^[+-][xz]$/.test(face) && sh === 'brick') b.print = { pattern: 'clock', face };
     return b;
   });
   const used = new Set(blocks.map(b => b.color));
   const colors = {};
   for (const k of used) if (STANDARD_COLORS[k]) colors[k] = STANDARD_COLORS[k];
   return {
-    format: 'blockmade.model', version: 1,
+    format: 'blockmade.model', version: 2,
     name: String(c.name || extra.name || '新しい作品'), nameEn: String(c.nameEn || ''),
     description: String(c.description || ''),
     author: extra.author || '', prompt: extra.prompt || '', createdAt: extra.createdAt || '',
@@ -650,10 +734,13 @@ function fromCompact(c, extra = {}) {
 }
 
 function cleanBlock(b) {
-  const o = { id: b.id, type: b.type, width: b.width, depth: b.depth, height: b.height, x: b.x, y: b.y, z: b.z, rotation: b.rotation, color: b.color, step: b.step };
+  const o = { id: b.id };
+  if (b.shape && b.shape !== 'brick') o.shape = b.shape;
+  Object.assign(o, { type: b.type, width: b.width, depth: b.depth, height: b.height, x: b.x, y: b.y, z: b.z, rotation: b.rotation, color: b.color, step: b.step });
   if (b.print) o.print = b.print;
   return o;
 }
+/** Serialize a normalized model as version-2 JSON (heights in plates). */
 function modelToJSON(m) {
   const colors = {};
   for (const [k, c] of Object.entries(m.colors)) {
@@ -663,7 +750,7 @@ function modelToJSON(m) {
     if (c.roughness !== 0.42) o.roughness = c.roughness;
     colors[k] = o;
   }
-  const out = { format: 'blockmade.model', version: 1, name: m.name, nameEn: m.nameEn, description: m.description };
+  const out = { format: 'blockmade.model', version: 2, units: { xz: 'stud', y: 'plate (brick = 3)' }, name: m.name, nameEn: m.nameEn, description: m.description };
   if (m.author) out.author = m.author;
   if (m.prompt) out.prompt = m.prompt;
   if (m.createdAt) out.createdAt = m.createdAt;
@@ -672,14 +759,14 @@ function modelToJSON(m) {
   return JSON.stringify(out, null, 2).replace('"__BLOCKS__"', '[\n' + lines + '\n  ]') + '\n';
 }
 
-const api = { STANDARD_COLORS, BRICK_SIZES, normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, cleanBlock, overlapXZ, overlapY };
+const api = { STANDARD_COLORS, PARTS, SHAPES, BRICK_SIZES, typeName, normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, cleanBlock, overlapXZ, overlapY, studsMeet };
 // Always expose the browser global; also export for node (tools/*.mjs).
 root.BlockModel = api;
 if (typeof module === 'object' && module && typeof module.exports === 'object') module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 </script>
 <script>
-window.BLOCKMADE_LIBRARY = {"format":"blockmade.library","version":1,"works":[{"id":"clock-tower","file":"models/clock-tower.json","name":"小さな時計塔","nameEn":"Small Clock Tower","description":"8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。","author":"Claude","createdAt":"2026-09-23","blocks":63,"steps":17,"layers":14,"size":"8×8×14","raw":{"format":"blockmade.model","version":1,"name":"小さな時計塔","nameEn":"Small Clock Tower","description":"8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"tan":{"name":"Tan","hex":"#d6b97c"},"brown":{"name":"Brown","hex":"#6e452b"},"green":{"name":"Green","hex":"#2e8b50"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"white":{"name":"White","hex":"#f0efe9"},"gold":{"name":"Gold","hex":"#d8a83c","metalness":0.35,"roughness":0.34},"red":{"name":"Red","hex":"#b23a30"}},"steps":[{"step":1,"title":"土台 1段目","description":"ダークグレーの2×8を4本、長い辺を前後(Z)方向に向けて左右に隙間なく並べ、8×8の正方形の土台をつくります。"},{"step":2,"title":"土台 2段目","description":"2×8を4本、90°回して1段目と直交するように重ねます。各ブロックが1段目の4本すべてをまたぐので、土台全体が1つに固定されます。"},{"step":3,"title":"石段と植え込み","description":"正面中央に砂色の2×2を置いて石段にし、土台の四隅に緑の2×2で植え込みをつくります。"},{"step":4,"title":"塔の1段目","description":"土台中央の4×4の範囲に壁を立てます。背面に1×4、左右に1×2。正面は扉口を空けるため、両端に1×1の柱だけを置きます。"},{"step":5,"title":"扉","description":"扉口から1スタッド奥に茶色の1×2を2段積み、奥まった扉にします。"},{"step":6,"title":"塔の2段目","description":"左右に1×4を前後方向に載せ、下段の継ぎ目をまたがせます。背面には1×2。正面は扉口なので空けたままにします。"},{"step":7,"title":"扉の上のまぐさ","description":"正面に砂色の1×4を渡して扉口の上をふさぎます（まぐさ）。左右の柱が両端を支えます。背面に1×4、左右に1×2を置いて段を仕上げます。"},{"step":8,"title":"前後の窓","description":"左右に1×4を載せ、前後の中央に透明ブルーの1×2を入れて窓にします。"},{"step":9,"title":"左右の窓","description":"前後に1×4を渡し、左右の中央に透明ブルーの1×2を入れて側面の窓にします。"},{"step":10,"title":"時計下の帯","description":"砂色のブロックで1段積み、時計部分の下に装飾の帯をつくります。積み方は2段目と同じです。"},{"step":11,"title":"時計部の四隅","description":"塔の4つの角に金色の1×1を立てます。"},{"step":12,"title":"時計の文字盤","description":"時計がプリントされた白い1×2×2（2段分の高さ）を4面に取り付けます。文字盤は外側に向けます。"},{"step":13,"title":"四隅の2段目","description":"金色の1×1をもう1段重ね、文字盤と高さをそろえます。"},{"step":14,"title":"軒（コーニス）","description":"前後に2×6、左右に2×2を置いて、塔より1スタッド張り出した6×6の軒をつくります。内側の列が時計部の上にかみ合って支えます。"},{"step":15,"title":"角の飾り","description":"軒の四隅の張り出し部分に金色の1×1を立てます。"},{"step":16,"title":"屋根","description":"赤い2×4を2本並べて4×4の屋根にします。この2本が軒の4つの部品をまたいで1つにまとめます。"},{"step":17,"title":"頂部","description":"中央に赤い2×2を重ね、最後に金色の2×2を頂上に載せて完成です。"}],"blocks":[{"id":"block_001","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x8","width":2,"depth":8,"height":1,"x":2,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_003","type":"2x8","width":2,"depth":8,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_004","type":"2x8","width":2,"depth":8,"height":1,"x":6,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_005","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":0,"rotation":90,"color":"dark-gray","step":2},{"id":"block_006","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":2,"rotation":90,"color":"dark-gray","step":2},{"id":"block_007","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":4,"rotation":90,"color":"dark-gray","step":2},{"id":"block_008","type":"2x8","width":2,"depth":8,"height":1,"x":0,"y":1,"z":6,"rotation":90,"color":"dark-gray","step":2},{"id":"block_009","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":2,"z":6,"rotation":0,"color":"tan","step":3},{"id":"block_010","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":0,"rotation":0,"color":"green","step":3},{"id":"block_011","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":2,"z":0,"rotation":0,"color":"green","step":3},{"id":"block_012","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":6,"rotation":0,"color":"green","step":3},{"id":"block_013","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":2,"z":6,"rotation":0,"color":"green","step":3},{"id":"block_014","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":2,"z":2,"rotation":90,"color":"light-gray","step":4},{"id":"block_015","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":3,"rotation":0,"color":"light-gray","step":4},{"id":"block_016","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":3,"rotation":0,"color":"light-gray","step":4},{"id":"block_017","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":2,"z":5,"rotation":0,"color":"light-gray","step":4},{"id":"block_018","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":2,"z":5,"rotation":0,"color":"light-gray","step":4},{"id":"block_019","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":2,"z":4,"rotation":90,"color":"brown","step":5},{"id":"block_020","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":3,"z":4,"rotation":90,"color":"brown","step":5},{"id":"block_021","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":3,"z":2,"rotation":0,"color":"light-gray","step":6},{"id":"block_022","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":3,"z":2,"rotation":0,"color":"light-gray","step":6},{"id":"block_023","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":3,"z":2,"rotation":90,"color":"light-gray","step":6},{"id":"block_024","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":4,"z":2,"rotation":90,"color":"light-gray","step":7},{"id":"block_025","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":4,"z":5,"rotation":90,"color":"tan","step":7},{"id":"block_026","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":3,"rotation":0,"color":"light-gray","step":7},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":4,"z":3,"rotation":0,"color":"light-gray","step":7},{"id":"block_028","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":5,"z":2,"rotation":0,"color":"light-gray","step":8},{"id":"block_029","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":5,"z":2,"rotation":0,"color":"light-gray","step":8},{"id":"block_030","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":5,"z":2,"rotation":90,"color":"trans-blue","step":8},{"id":"block_031","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":5,"z":5,"rotation":90,"color":"trans-blue","step":8},{"id":"block_032","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":6,"z":2,"rotation":90,"color":"light-gray","step":9},{"id":"block_033","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":6,"z":5,"rotation":90,"color":"light-gray","step":9},{"id":"block_034","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":6,"z":3,"rotation":0,"color":"trans-blue","step":9},{"id":"block_035","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":6,"z":3,"rotation":0,"color":"trans-blue","step":9},{"id":"block_036","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":7,"z":2,"rotation":0,"color":"tan","step":10},{"id":"block_037","type":"1x4","width":1,"depth":4,"height":1,"x":5,"y":7,"z":2,"rotation":0,"color":"tan","step":10},{"id":"block_038","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":7,"z":2,"rotation":90,"color":"tan","step":10},{"id":"block_039","type":"1x2","width":1,"depth":2,"height":1,"x":3,"y":7,"z":5,"rotation":90,"color":"tan","step":10},{"id":"block_040","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":8,"z":2,"rotation":0,"color":"gold","step":11},{"id":"block_041","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":8,"z":2,"rotation":0,"color":"gold","step":11},{"id":"block_042","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":8,"z":5,"rotation":0,"color":"gold","step":11},{"id":"block_043","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":8,"z":5,"rotation":0,"color":"gold","step":11},{"id":"block_044","type":"1x2x2","width":1,"depth":2,"height":2,"x":3,"y":8,"z":5,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"+z"}},{"id":"block_045","type":"1x2x2","width":1,"depth":2,"height":2,"x":3,"y":8,"z":2,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"-z"}},{"id":"block_046","type":"1x2x2","width":1,"depth":2,"height":2,"x":2,"y":8,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"-x"}},{"id":"block_047","type":"1x2x2","width":1,"depth":2,"height":2,"x":5,"y":8,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"+x"}},{"id":"block_048","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":9,"z":2,"rotation":0,"color":"gold","step":13},{"id":"block_049","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":9,"z":2,"rotation":0,"color":"gold","step":13},{"id":"block_050","type":"1x1","width":1,"depth":1,"height":1,"x":2,"y":9,"z":5,"rotation":0,"color":"gold","step":13},{"id":"block_051","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":9,"z":5,"rotation":0,"color":"gold","step":13},{"id":"block_052","type":"2x6","width":2,"depth":6,"height":1,"x":1,"y":10,"z":5,"rotation":90,"color":"dark-gray","step":14},{"id":"block_053","type":"2x6","width":2,"depth":6,"height":1,"x":1,"y":10,"z":1,"rotation":90,"color":"dark-gray","step":14},{"id":"block_054","type":"2x2","width":2,"depth":2,"height":1,"x":1,"y":10,"z":3,"rotation":0,"color":"dark-gray","step":14},{"id":"block_055","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":10,"z":3,"rotation":0,"color":"dark-gray","step":14},{"id":"block_056","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":11,"z":1,"rotation":0,"color":"gold","step":15},{"id":"block_057","type":"1x1","width":1,"depth":1,"height":1,"x":6,"y":11,"z":1,"rotation":0,"color":"gold","step":15},{"id":"block_058","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":11,"z":6,"rotation":0,"color":"gold","step":15},{"id":"block_059","type":"1x1","width":1,"depth":1,"height":1,"x":6,"y":11,"z":6,"rotation":0,"color":"gold","step":15},{"id":"block_060","type":"2x4","width":2,"depth":4,"height":1,"x":2,"y":11,"z":2,"rotation":90,"color":"red","step":16},{"id":"block_061","type":"2x4","width":2,"depth":4,"height":1,"x":2,"y":11,"z":4,"rotation":90,"color":"red","step":16},{"id":"block_062","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":12,"z":3,"rotation":0,"color":"red","step":17},{"id":"block_063","type":"2x2","width":2,"depth":2,"height":1,"x":3,"y":13,"z":3,"rotation":0,"color":"gold","step":17}]}},{"id":"red-roof-house","file":"models/red-roof-house.json","name":"赤い屋根の家","nameEn":"Red-Roof House","description":"芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。","author":"Claude","createdAt":"2026-09-23","blocks":88,"steps":11,"layers":10,"size":"12×12×10","raw":{"format":"blockmade.model","version":1,"name":"赤い屋根の家","nameEn":"Red-Roof House","description":"芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。","author":"Claude","createdAt":"2026-09-23","colors":{"green":{"name":"Green","hex":"#2e8b50"},"tan":{"name":"Tan","hex":"#d6b97c"},"dark-green":{"name":"Dark Green","hex":"#1f5a3a"},"brown":{"name":"Brown","hex":"#6e452b"},"white":{"name":"White","hex":"#f0efe9"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"dark-red":{"name":"Dark Red","hex":"#7a2426"}},"steps":[{"step":1,"title":"芝生の土台","description":"緑の2×12を6本、前後方向に並べて12×12の芝生をつくります。この上に家の壁が横切るように載り、土台全体をつなぎます。"},{"step":2,"title":"庭と小道","description":"正面の庭に砂色の2×3で小道を敷き、左右に深緑の2×2で植え込みをつくります。"},{"step":3,"title":"壁の1段目","description":"砂色のブロックで10×8の壁の1段目を立てます。正面中央の2スタッドには茶色の1×2を置いて扉の下端にします。"},{"step":4,"title":"壁の2段目と窓","description":"白いブロックで2段目を積みます。継ぎ目が下の段とずれるように置き、窓の位置には透明ブルーを入れます。"},{"step":5,"title":"壁の3段目","description":"3段目も継ぎ目をずらして積みます。窓と扉はもう1段上まで続きます。"},{"step":6,"title":"壁の4段目（まぐさ）","description":"白いブロックで4段目を積み、扉と窓の上をふさぎます。壁はここまでです。"},{"step":7,"title":"軒と破風","description":"前後に屋根の軒を2列ずつ、壁より1スタッド外まで張り出して載せます。左右の壁の上には白い1×6で三角の破風の最下段をつくります。"},{"step":8,"title":"屋根 2段目","description":"1スタッド内側にずらして屋根の2段目を載せます。継ぎ目が下段と重ならないよう2×4を3本ずつ使います。破風は1×4です。"},{"step":9,"title":"屋根 3段目","description":"さらに1スタッド内側に屋根を載せ、破風の頂上に1×2を置きます。"},{"step":10,"title":"屋根 4段目","description":"屋根の4段目です。前後の列が破風の頂上をはさんで固定します。"},{"step":11,"title":"棟（むね）","description":"最後に屋根の頂上へ2×6を2本載せて、前後の屋根をつなぎます。完成です。"}],"blocks":[{"id":"block_001","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_002","type":"2x12","width":2,"depth":12,"height":1,"x":2,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_003","type":"2x12","width":2,"depth":12,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_004","type":"2x12","width":2,"depth":12,"height":1,"x":6,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_005","type":"2x12","width":2,"depth":12,"height":1,"x":8,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_006","type":"2x12","width":2,"depth":12,"height":1,"x":10,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_007","type":"2x3","width":2,"depth":3,"height":1,"x":5,"y":1,"z":9,"rotation":0,"color":"tan","step":2},{"id":"block_008","type":"2x2","width":2,"depth":2,"height":1,"x":1,"y":1,"z":10,"rotation":0,"color":"dark-green","step":2},{"id":"block_009","type":"2x2","width":2,"depth":2,"height":1,"x":9,"y":1,"z":10,"rotation":0,"color":"dark-green","step":2},{"id":"block_010","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":1,"z":1,"rotation":90,"color":"tan","step":3},{"id":"block_011","type":"1x6","width":1,"depth":6,"height":1,"x":5,"y":1,"z":1,"rotation":90,"color":"tan","step":3},{"id":"block_012","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":1,"z":8,"rotation":90,"color":"tan","step":3},{"id":"block_013","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":1,"z":8,"rotation":90,"color":"brown","step":3},{"id":"block_014","type":"1x4","width":1,"depth":4,"height":1,"x":7,"y":1,"z":8,"rotation":90,"color":"tan","step":3},{"id":"block_015","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":1,"z":2,"rotation":0,"color":"tan","step":3},{"id":"block_016","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":1,"z":2,"rotation":0,"color":"tan","step":3},{"id":"block_017","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_018","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":2,"z":3,"rotation":0,"color":"white","step":4},{"id":"block_019","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":4,"rotation":0,"color":"trans-blue","step":4},{"id":"block_020","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":2,"z":6,"rotation":0,"color":"white","step":4},{"id":"block_021","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":2,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_022","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_023","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":2,"z":3,"rotation":0,"color":"white","step":4},{"id":"block_024","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":4,"rotation":0,"color":"trans-blue","step":4},{"id":"block_025","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":2,"z":6,"rotation":0,"color":"white","step":4},{"id":"block_026","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":2,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":1,"rotation":90,"color":"white","step":4},{"id":"block_028","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":2,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_029","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":1,"rotation":90,"color":"trans-blue","step":4},{"id":"block_030","type":"1x2","width":1,"depth":2,"height":1,"x":7,"y":2,"z":1,"rotation":90,"color":"white","step":4},{"id":"block_031","type":"1x1","width":1,"depth":1,"height":1,"x":9,"y":2,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_032","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":2,"z":8,"rotation":90,"color":"trans-blue","step":4},{"id":"block_033","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":2,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_034","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":2,"z":8,"rotation":90,"color":"brown","step":4},{"id":"block_035","type":"1x1","width":1,"depth":1,"height":1,"x":7,"y":2,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_036","type":"1x2","width":1,"depth":2,"height":1,"x":8,"y":2,"z":8,"rotation":90,"color":"trans-blue","step":4},{"id":"block_037","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":3,"z":1,"rotation":90,"color":"white","step":5},{"id":"block_038","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":3,"z":1,"rotation":90,"color":"trans-blue","step":5},{"id":"block_039","type":"1x4","width":1,"depth":4,"height":1,"x":7,"y":3,"z":1,"rotation":90,"color":"white","step":5},{"id":"block_040","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":3,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_041","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":3,"z":8,"rotation":90,"color":"trans-blue","step":5},{"id":"block_042","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":3,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_043","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":3,"z":8,"rotation":90,"color":"brown","step":5},{"id":"block_044","type":"1x1","width":1,"depth":1,"height":1,"x":7,"y":3,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_045","type":"1x2","width":1,"depth":2,"height":1,"x":8,"y":3,"z":8,"rotation":90,"color":"trans-blue","step":5},{"id":"block_046","type":"1x1","width":1,"depth":1,"height":1,"x":10,"y":3,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_047","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":2,"rotation":0,"color":"white","step":5},{"id":"block_048","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":4,"rotation":0,"color":"trans-blue","step":5},{"id":"block_049","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":3,"z":6,"rotation":0,"color":"white","step":5},{"id":"block_050","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":2,"rotation":0,"color":"white","step":5},{"id":"block_051","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":4,"rotation":0,"color":"trans-blue","step":5},{"id":"block_052","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":3,"z":6,"rotation":0,"color":"white","step":5},{"id":"block_053","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":4,"z":1,"rotation":0,"color":"white","step":6},{"id":"block_054","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":4,"z":3,"rotation":0,"color":"white","step":6},{"id":"block_055","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":4,"z":1,"rotation":0,"color":"white","step":6},{"id":"block_056","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":4,"z":3,"rotation":0,"color":"white","step":6},{"id":"block_057","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_058","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_059","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":4,"z":8,"rotation":90,"color":"white","step":6},{"id":"block_060","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":8,"rotation":90,"color":"white","step":6},{"id":"block_061","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":5,"z":0,"rotation":90,"color":"dark-red","step":7},{"id":"block_062","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":5,"z":0,"rotation":90,"color":"dark-red","step":7},{"id":"block_063","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":5,"z":8,"rotation":90,"color":"dark-red","step":7},{"id":"block_064","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":5,"z":8,"rotation":90,"color":"dark-red","step":7},{"id":"block_065","type":"1x6","width":1,"depth":6,"height":1,"x":1,"y":5,"z":2,"rotation":0,"color":"white","step":7},{"id":"block_066","type":"1x6","width":1,"depth":6,"height":1,"x":10,"y":5,"z":2,"rotation":0,"color":"white","step":7},{"id":"block_067","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_068","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_069","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":6,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_070","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_071","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_072","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":6,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_073","type":"1x4","width":1,"depth":4,"height":1,"x":1,"y":6,"z":3,"rotation":0,"color":"white","step":8},{"id":"block_074","type":"1x4","width":1,"depth":4,"height":1,"x":10,"y":6,"z":3,"rotation":0,"color":"white","step":8},{"id":"block_075","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":7,"z":2,"rotation":90,"color":"dark-red","step":9},{"id":"block_076","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":7,"z":2,"rotation":90,"color":"dark-red","step":9},{"id":"block_077","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":7,"z":6,"rotation":90,"color":"dark-red","step":9},{"id":"block_078","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":7,"z":6,"rotation":90,"color":"dark-red","step":9},{"id":"block_079","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":7,"z":4,"rotation":0,"color":"white","step":9},{"id":"block_080","type":"1x2","width":1,"depth":2,"height":1,"x":10,"y":7,"z":4,"rotation":0,"color":"white","step":9},{"id":"block_081","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_082","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_083","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":8,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_084","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_085","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_086","type":"2x4","width":2,"depth":4,"height":1,"x":8,"y":8,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_087","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":9,"z":4,"rotation":90,"color":"dark-red","step":11},{"id":"block_088","type":"2x6","width":2,"depth":6,"height":1,"x":6,"y":9,"z":4,"rotation":90,"color":"dark-red","step":11}]}},{"id":"star-fighter","file":"models/star-fighter.json","name":"スターファイター","nameEn":"Star Fighter","description":"展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。","author":"Claude","createdAt":"2026-09-23","blocks":31,"steps":15,"layers":10,"size":"12×15×10","raw":{"format":"blockmade.model","version":1,"name":"スターファイター","nameEn":"Star Fighter","description":"展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"black":{"name":"Black","hex":"#25282d"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"white":{"name":"White","hex":"#f0efe9"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"red":{"name":"Red","hex":"#b23a30"},"trans-orange":{"name":"Trans Orange","hex":"#ff9b2e","opacity":0.7},"trans-red":{"name":"Trans Red","hex":"#ff4a3d","opacity":0.7},"trans-green":{"name":"Trans Green","hex":"#5fe07a","opacity":0.6}},"steps":[{"step":1,"title":"展示スタンド","description":"ダークグレーの4×6を台座に置き、黒の2×4と2×2を2段重ねて支柱にします。"},{"step":2,"title":"キール（竜骨）","description":"支柱の上に明るいグレーの2×10を前後方向に載せます。機体の背骨になります。"},{"step":3,"title":"機体の下半分","description":"キールの上に白い4×6と4×4、機首の2×4を前後に並べます。"},{"step":4,"title":"腹部の張り出し","description":"機体の下にグレーの1×6を左右1本ずつ、下から差し込みます。"},{"step":5,"title":"主翼","description":"明るいグレーの2×12を2本、左右方向に機体の上へ渡して主翼にします。"},{"step":6,"title":"機体の上半分","description":"主翼の前後に白い2×4を載せ、後ろには機体から張り出す2×4を置きます。"},{"step":7,"title":"キャノピーと機首","description":"透明ブルーの2×2でキャノピー、赤い2×2で機首の上面をつくります。"},{"step":8,"title":"メインエンジン","description":"機体後部の張り出しの下に、透明オレンジの1×2をエンジン噴射口として差し込みます。"},{"step":9,"title":"機関砲","description":"主翼の下に黒い1×4を左右1本ずつ、前向きに差し込みます。"},{"step":10,"title":"エンジンポッド","description":"主翼の上の左右にダークグレーの2×4を載せます。後ろに1スタッド張り出します。"},{"step":11,"title":"ポッドの噴射口","description":"ポッドの張り出しの下に透明オレンジの1×2を差し込みます。"},{"step":12,"title":"翼端","description":"主翼の両端に赤い1×4を載せます。"},{"step":13,"title":"背面とキャノピー上部","description":"主翼の中央にダークグレーの2×4、キャノピーの上に透明ブルーの1×2を重ねます。"},{"step":14,"title":"航行灯","description":"左の翼端に透明レッド、右の翼端に透明グリーンの1×1を載せます。"},{"step":15,"title":"尾翼","description":"背面の上に赤い1×3と1×2を重ねて尾翼を立てます。完成です。"}],"blocks":[{"id":"block_001","type":"4x6","width":4,"depth":6,"height":1,"x":4,"y":0,"z":6,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":1,"z":7,"rotation":0,"color":"black","step":1},{"id":"block_003","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":2,"z":8,"rotation":0,"color":"black","step":1},{"id":"block_004","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":3,"z":8,"rotation":0,"color":"black","step":1},{"id":"block_005","type":"2x10","width":2,"depth":10,"height":1,"x":5,"y":4,"z":3,"rotation":0,"color":"light-gray","step":2},{"id":"block_006","type":"4x6","width":4,"depth":6,"height":1,"x":4,"y":5,"z":2,"rotation":0,"color":"white","step":3},{"id":"block_007","type":"4x4","width":4,"depth":4,"height":1,"x":4,"y":5,"z":8,"rotation":0,"color":"white","step":3},{"id":"block_008","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":5,"z":12,"rotation":0,"color":"white","step":3},{"id":"block_009","type":"1x6","width":1,"depth":6,"height":1,"x":4,"y":4,"z":4,"rotation":0,"color":"light-gray","step":4},{"id":"block_010","type":"1x6","width":1,"depth":6,"height":1,"x":7,"y":4,"z":4,"rotation":0,"color":"light-gray","step":4},{"id":"block_011","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":6,"z":3,"rotation":90,"color":"light-gray","step":5},{"id":"block_012","type":"2x12","width":2,"depth":12,"height":1,"x":0,"y":6,"z":5,"rotation":90,"color":"light-gray","step":5},{"id":"block_013","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":7,"rotation":90,"color":"white","step":6},{"id":"block_014","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_015","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":6,"z":9,"rotation":0,"color":"trans-blue","step":7},{"id":"block_016","type":"2x2","width":2,"depth":2,"height":1,"x":5,"y":6,"z":12,"rotation":0,"color":"red","step":7},{"id":"block_017","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":5,"z":1,"rotation":90,"color":"trans-orange","step":8},{"id":"block_018","type":"1x4","width":1,"depth":4,"height":1,"x":2,"y":5,"z":6,"rotation":0,"color":"black","step":9},{"id":"block_019","type":"1x4","width":1,"depth":4,"height":1,"x":9,"y":5,"z":6,"rotation":0,"color":"black","step":9},{"id":"block_020","type":"2x4","width":2,"depth":4,"height":1,"x":1,"y":7,"z":2,"rotation":0,"color":"dark-gray","step":10},{"id":"block_021","type":"2x4","width":2,"depth":4,"height":1,"x":9,"y":7,"z":2,"rotation":0,"color":"dark-gray","step":10},{"id":"block_022","type":"1x2","width":1,"depth":2,"height":1,"x":1,"y":6,"z":2,"rotation":90,"color":"trans-orange","step":11},{"id":"block_023","type":"1x2","width":1,"depth":2,"height":1,"x":9,"y":6,"z":2,"rotation":90,"color":"trans-orange","step":11},{"id":"block_024","type":"1x4","width":1,"depth":4,"height":1,"x":0,"y":7,"z":3,"rotation":0,"color":"red","step":12},{"id":"block_025","type":"1x4","width":1,"depth":4,"height":1,"x":11,"y":7,"z":3,"rotation":0,"color":"red","step":12},{"id":"block_026","type":"2x4","width":2,"depth":4,"height":1,"x":5,"y":7,"z":3,"rotation":0,"color":"dark-gray","step":13},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":7,"z":9,"rotation":90,"color":"trans-blue","step":13},{"id":"block_028","type":"1x1","width":1,"depth":1,"height":1,"x":0,"y":8,"z":5,"rotation":0,"color":"trans-red","step":14},{"id":"block_029","type":"1x1","width":1,"depth":1,"height":1,"x":11,"y":8,"z":5,"rotation":0,"color":"trans-green","step":14},{"id":"block_030","type":"1x3","width":1,"depth":3,"height":1,"x":5,"y":8,"z":3,"rotation":0,"color":"red","step":15},{"id":"block_031","type":"1x2","width":1,"depth":2,"height":1,"x":5,"y":9,"z":3,"rotation":0,"color":"red","step":15}]}},{"id":"block-robot","file":"models/block-robot.json","name":"ブロックロボ","nameEn":"Block Robot","description":"胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。","author":"Claude","createdAt":"2026-09-23","blocks":39,"steps":13,"layers":14,"size":"10×4×14","raw":{"format":"blockmade.model","version":1,"name":"ブロックロボ","nameEn":"Block Robot","description":"胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"blue":{"name":"Blue","hex":"#2f63b8"},"trans-red":{"name":"Trans Red","hex":"#ff4a3d","opacity":0.7},"black":{"name":"Black","hex":"#25282d"},"red":{"name":"Red","hex":"#b23a30"},"trans-yellow":{"name":"Trans Yellow","hex":"#ffe45c","opacity":0.7}},"steps":[{"step":1,"title":"足","description":"ダークグレーの2×4を2つ、2スタッド空けて並べます。"},{"step":2,"title":"脚","description":"足の中央に2×2を3段ずつ積みます。真ん中の段はひざとしてダークグレーにします。"},{"step":3,"title":"腰","description":"ダークグレーの2×6を左右の脚にまたがせて載せ、両脚をつなぎます。"},{"step":4,"title":"胴体の下段","description":"青い4×6を腰の上に載せます。前後に1スタッドずつ張り出します。"},{"step":5,"title":"胸とランプ","description":"青い2×4を左右に、中央に2×3を置き、正面中央には透明レッドの1×2をランプとして入れます。"},{"step":6,"title":"胴体の上段","description":"青い4×6で胸の部品をまとめてふさぎます。"},{"step":7,"title":"肩","description":"ダークグレーの2×10を胴体の上に左右方向に渡します。両端が2スタッドずつ張り出して腕の付け根になります。"},{"step":8,"title":"腕","description":"肩の張り出しの下に2×2を上から順に3段ずつ吊り下げ、いちばん下は黒い手にします。"},{"step":9,"title":"肩当て","description":"肩の両端の上に赤い2×2を載せます。"},{"step":10,"title":"首と頭の後ろ","description":"肩の中央にダークグレーの2×2で首を立て、その上に明るいグレーの2×6で頭の後ろ半分をつくります。"},{"step":11,"title":"頭のてっぺん","description":"明るいグレーの1×6を後ろに、2×6を前に載せます。前の2×6は顔の部分まで1スタッド張り出します。"},{"step":12,"title":"顔","description":"てっぺんの張り出しの下に顔の部品を差し込みます。透明イエローの1×1が目になります。"},{"step":13,"title":"アンテナ","description":"頭の上にダークグレーの1×1を2本立て、先端に透明レッドの1×1を載せて完成です。"}],"blocks":[{"id":"block_001","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_003","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":1,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_004","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":2,"z":1,"rotation":0,"color":"dark-gray","step":2},{"id":"block_005","type":"2x2","width":2,"depth":2,"height":1,"x":0,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_006","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":1,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_007","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":2,"z":1,"rotation":0,"color":"dark-gray","step":2},{"id":"block_008","type":"2x2","width":2,"depth":2,"height":1,"x":4,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_009","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":4,"z":1,"rotation":90,"color":"dark-gray","step":3},{"id":"block_010","type":"4x6","width":4,"depth":6,"height":1,"x":0,"y":5,"z":0,"rotation":90,"color":"blue","step":4},{"id":"block_011","type":"2x4","width":2,"depth":4,"height":1,"x":0,"y":6,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_012","type":"2x4","width":2,"depth":4,"height":1,"x":4,"y":6,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_013","type":"2x3","width":2,"depth":3,"height":1,"x":2,"y":6,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_014","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":6,"z":3,"rotation":90,"color":"trans-red","step":5},{"id":"block_015","type":"4x6","width":4,"depth":6,"height":1,"x":0,"y":7,"z":0,"rotation":90,"color":"blue","step":6},{"id":"block_016","type":"2x10","width":2,"depth":10,"height":1,"x":-2,"y":8,"z":1,"rotation":90,"color":"dark-gray","step":7},{"id":"block_017","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":7,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_018","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":6,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_019","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":5,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_020","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":4,"z":1,"rotation":0,"color":"black","step":8},{"id":"block_021","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":7,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_022","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":6,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_023","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":5,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_024","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":4,"z":1,"rotation":0,"color":"black","step":8},{"id":"block_025","type":"2x2","width":2,"depth":2,"height":1,"x":-2,"y":9,"z":1,"rotation":0,"color":"red","step":9},{"id":"block_026","type":"2x2","width":2,"depth":2,"height":1,"x":6,"y":9,"z":1,"rotation":0,"color":"red","step":9},{"id":"block_027","type":"2x2","width":2,"depth":2,"height":1,"x":2,"y":9,"z":1,"rotation":0,"color":"dark-gray","step":10},{"id":"block_028","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":10,"z":1,"rotation":90,"color":"light-gray","step":10},{"id":"block_029","type":"1x6","width":1,"depth":6,"height":1,"x":0,"y":11,"z":1,"rotation":90,"color":"light-gray","step":11},{"id":"block_030","type":"2x6","width":2,"depth":6,"height":1,"x":0,"y":11,"z":2,"rotation":90,"color":"light-gray","step":11},{"id":"block_031","type":"1x1","width":1,"depth":1,"height":1,"x":0,"y":10,"z":3,"rotation":0,"color":"light-gray","step":12},{"id":"block_032","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":10,"z":3,"rotation":0,"color":"trans-yellow","step":12},{"id":"block_033","type":"1x2","width":1,"depth":2,"height":1,"x":2,"y":10,"z":3,"rotation":90,"color":"light-gray","step":12},{"id":"block_034","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":10,"z":3,"rotation":0,"color":"trans-yellow","step":12},{"id":"block_035","type":"1x1","width":1,"depth":1,"height":1,"x":5,"y":10,"z":3,"rotation":0,"color":"light-gray","step":12},{"id":"block_036","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":12,"z":2,"rotation":0,"color":"dark-gray","step":13},{"id":"block_037","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":12,"z":2,"rotation":0,"color":"dark-gray","step":13},{"id":"block_038","type":"1x1","width":1,"depth":1,"height":1,"x":1,"y":13,"z":2,"rotation":0,"color":"trans-red","step":13},{"id":"block_039","type":"1x1","width":1,"depth":1,"height":1,"x":4,"y":13,"z":2,"rotation":0,"color":"trans-red","step":13}]}}]};
+window.BLOCKMADE_LIBRARY = {"format":"blockmade.library","version":1,"works":[{"id":"clock-tower","file":"models/clock-tower.json","name":"小さな時計塔","nameEn":"Small Clock Tower","description":"8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。","author":"Claude","createdAt":"2026-09-23","blocks":63,"steps":17,"layers":14,"size":"8×8×14","raw":{"format":"blockmade.model","version":2,"units":{"xz":"stud","y":"plate (brick = 3)"},"name":"小さな時計塔","nameEn":"Small Clock Tower","description":"8×8スタッドの石の土台に立つ、4面時計つきの小さな時計塔。高さ14段・63ブロック。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"tan":{"name":"Tan","hex":"#d6b97c"},"brown":{"name":"Brown","hex":"#6e452b"},"green":{"name":"Green","hex":"#2e8b50"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"white":{"name":"White","hex":"#f0efe9"},"gold":{"name":"Gold","hex":"#d8a83c","metalness":0.35,"roughness":0.34},"red":{"name":"Red","hex":"#b23a30"}},"steps":[{"step":1,"title":"土台 1段目","description":"ダークグレーの2×8を4本、長い辺を前後(Z)方向に向けて左右に隙間なく並べ、8×8の正方形の土台をつくります。"},{"step":2,"title":"土台 2段目","description":"2×8を4本、90°回して1段目と直交するように重ねます。各ブロックが1段目の4本すべてをまたぐので、土台全体が1つに固定されます。"},{"step":3,"title":"石段と植え込み","description":"正面中央に砂色の2×2を置いて石段にし、土台の四隅に緑の2×2で植え込みをつくります。"},{"step":4,"title":"塔の1段目","description":"土台中央の4×4の範囲に壁を立てます。背面に1×4、左右に1×2。正面は扉口を空けるため、両端に1×1の柱だけを置きます。"},{"step":5,"title":"扉","description":"扉口から1スタッド奥に茶色の1×2を2段積み、奥まった扉にします。"},{"step":6,"title":"塔の2段目","description":"左右に1×4を前後方向に載せ、下段の継ぎ目をまたがせます。背面には1×2。正面は扉口なので空けたままにします。"},{"step":7,"title":"扉の上のまぐさ","description":"正面に砂色の1×4を渡して扉口の上をふさぎます（まぐさ）。左右の柱が両端を支えます。背面に1×4、左右に1×2を置いて段を仕上げます。"},{"step":8,"title":"前後の窓","description":"左右に1×4を載せ、前後の中央に透明ブルーの1×2を入れて窓にします。"},{"step":9,"title":"左右の窓","description":"前後に1×4を渡し、左右の中央に透明ブルーの1×2を入れて側面の窓にします。"},{"step":10,"title":"時計下の帯","description":"砂色のブロックで1段積み、時計部分の下に装飾の帯をつくります。積み方は2段目と同じです。"},{"step":11,"title":"時計部の四隅","description":"塔の4つの角に金色の1×1を立てます。"},{"step":12,"title":"時計の文字盤","description":"時計がプリントされた白い1×2×2（2段分の高さ）を4面に取り付けます。文字盤は外側に向けます。"},{"step":13,"title":"四隅の2段目","description":"金色の1×1をもう1段重ね、文字盤と高さをそろえます。"},{"step":14,"title":"軒（コーニス）","description":"前後に2×6、左右に2×2を置いて、塔より1スタッド張り出した6×6の軒をつくります。内側の列が時計部の上にかみ合って支えます。"},{"step":15,"title":"角の飾り","description":"軒の四隅の張り出し部分に金色の1×1を立てます。"},{"step":16,"title":"屋根","description":"赤い2×4を2本並べて4×4の屋根にします。この2本が軒の4つの部品をまたいで1つにまとめます。"},{"step":17,"title":"頂部","description":"中央に赤い2×2を重ね、最後に金色の2×2を頂上に載せて完成です。"}],"blocks":[{"id":"block_001","type":"2x8","width":2,"depth":8,"height":3,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x8","width":2,"depth":8,"height":3,"x":2,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_003","type":"2x8","width":2,"depth":8,"height":3,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_004","type":"2x8","width":2,"depth":8,"height":3,"x":6,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_005","type":"2x8","width":2,"depth":8,"height":3,"x":0,"y":3,"z":0,"rotation":90,"color":"dark-gray","step":2},{"id":"block_006","type":"2x8","width":2,"depth":8,"height":3,"x":0,"y":3,"z":2,"rotation":90,"color":"dark-gray","step":2},{"id":"block_007","type":"2x8","width":2,"depth":8,"height":3,"x":0,"y":3,"z":4,"rotation":90,"color":"dark-gray","step":2},{"id":"block_008","type":"2x8","width":2,"depth":8,"height":3,"x":0,"y":3,"z":6,"rotation":90,"color":"dark-gray","step":2},{"id":"block_009","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":6,"z":6,"rotation":0,"color":"tan","step":3},{"id":"block_010","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":6,"z":0,"rotation":0,"color":"green","step":3},{"id":"block_011","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":6,"z":0,"rotation":0,"color":"green","step":3},{"id":"block_012","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":6,"z":6,"rotation":0,"color":"green","step":3},{"id":"block_013","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":6,"z":6,"rotation":0,"color":"green","step":3},{"id":"block_014","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":6,"z":2,"rotation":90,"color":"light-gray","step":4},{"id":"block_015","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":6,"z":3,"rotation":0,"color":"light-gray","step":4},{"id":"block_016","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":6,"z":3,"rotation":0,"color":"light-gray","step":4},{"id":"block_017","type":"1x1","width":1,"depth":1,"height":3,"x":2,"y":6,"z":5,"rotation":0,"color":"light-gray","step":4},{"id":"block_018","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":6,"z":5,"rotation":0,"color":"light-gray","step":4},{"id":"block_019","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":6,"z":4,"rotation":90,"color":"brown","step":5},{"id":"block_020","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":9,"z":4,"rotation":90,"color":"brown","step":5},{"id":"block_021","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":9,"z":2,"rotation":0,"color":"light-gray","step":6},{"id":"block_022","type":"1x4","width":1,"depth":4,"height":3,"x":5,"y":9,"z":2,"rotation":0,"color":"light-gray","step":6},{"id":"block_023","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":9,"z":2,"rotation":90,"color":"light-gray","step":6},{"id":"block_024","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":12,"z":2,"rotation":90,"color":"light-gray","step":7},{"id":"block_025","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":12,"z":5,"rotation":90,"color":"tan","step":7},{"id":"block_026","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":12,"z":3,"rotation":0,"color":"light-gray","step":7},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":12,"z":3,"rotation":0,"color":"light-gray","step":7},{"id":"block_028","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":15,"z":2,"rotation":0,"color":"light-gray","step":8},{"id":"block_029","type":"1x4","width":1,"depth":4,"height":3,"x":5,"y":15,"z":2,"rotation":0,"color":"light-gray","step":8},{"id":"block_030","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":15,"z":2,"rotation":90,"color":"trans-blue","step":8},{"id":"block_031","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":15,"z":5,"rotation":90,"color":"trans-blue","step":8},{"id":"block_032","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":18,"z":2,"rotation":90,"color":"light-gray","step":9},{"id":"block_033","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":18,"z":5,"rotation":90,"color":"light-gray","step":9},{"id":"block_034","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":18,"z":3,"rotation":0,"color":"trans-blue","step":9},{"id":"block_035","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":18,"z":3,"rotation":0,"color":"trans-blue","step":9},{"id":"block_036","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":21,"z":2,"rotation":0,"color":"tan","step":10},{"id":"block_037","type":"1x4","width":1,"depth":4,"height":3,"x":5,"y":21,"z":2,"rotation":0,"color":"tan","step":10},{"id":"block_038","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":21,"z":2,"rotation":90,"color":"tan","step":10},{"id":"block_039","type":"1x2","width":1,"depth":2,"height":3,"x":3,"y":21,"z":5,"rotation":90,"color":"tan","step":10},{"id":"block_040","type":"1x1","width":1,"depth":1,"height":3,"x":2,"y":24,"z":2,"rotation":0,"color":"gold","step":11},{"id":"block_041","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":24,"z":2,"rotation":0,"color":"gold","step":11},{"id":"block_042","type":"1x1","width":1,"depth":1,"height":3,"x":2,"y":24,"z":5,"rotation":0,"color":"gold","step":11},{"id":"block_043","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":24,"z":5,"rotation":0,"color":"gold","step":11},{"id":"block_044","type":"1x2x2","width":1,"depth":2,"height":6,"x":3,"y":24,"z":5,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"+z"}},{"id":"block_045","type":"1x2x2","width":1,"depth":2,"height":6,"x":3,"y":24,"z":2,"rotation":90,"color":"white","step":12,"print":{"pattern":"clock","face":"-z"}},{"id":"block_046","type":"1x2x2","width":1,"depth":2,"height":6,"x":2,"y":24,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"-x"}},{"id":"block_047","type":"1x2x2","width":1,"depth":2,"height":6,"x":5,"y":24,"z":3,"rotation":0,"color":"white","step":12,"print":{"pattern":"clock","face":"+x"}},{"id":"block_048","type":"1x1","width":1,"depth":1,"height":3,"x":2,"y":27,"z":2,"rotation":0,"color":"gold","step":13},{"id":"block_049","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":27,"z":2,"rotation":0,"color":"gold","step":13},{"id":"block_050","type":"1x1","width":1,"depth":1,"height":3,"x":2,"y":27,"z":5,"rotation":0,"color":"gold","step":13},{"id":"block_051","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":27,"z":5,"rotation":0,"color":"gold","step":13},{"id":"block_052","type":"2x6","width":2,"depth":6,"height":3,"x":1,"y":30,"z":5,"rotation":90,"color":"dark-gray","step":14},{"id":"block_053","type":"2x6","width":2,"depth":6,"height":3,"x":1,"y":30,"z":1,"rotation":90,"color":"dark-gray","step":14},{"id":"block_054","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":30,"z":3,"rotation":0,"color":"dark-gray","step":14},{"id":"block_055","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":30,"z":3,"rotation":0,"color":"dark-gray","step":14},{"id":"block_056","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":33,"z":1,"rotation":0,"color":"gold","step":15},{"id":"block_057","type":"1x1","width":1,"depth":1,"height":3,"x":6,"y":33,"z":1,"rotation":0,"color":"gold","step":15},{"id":"block_058","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":33,"z":6,"rotation":0,"color":"gold","step":15},{"id":"block_059","type":"1x1","width":1,"depth":1,"height":3,"x":6,"y":33,"z":6,"rotation":0,"color":"gold","step":15},{"id":"block_060","type":"2x4","width":2,"depth":4,"height":3,"x":2,"y":33,"z":2,"rotation":90,"color":"red","step":16},{"id":"block_061","type":"2x4","width":2,"depth":4,"height":3,"x":2,"y":33,"z":4,"rotation":90,"color":"red","step":16},{"id":"block_062","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":36,"z":3,"rotation":0,"color":"red","step":17},{"id":"block_063","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":39,"z":3,"rotation":0,"color":"gold","step":17}]}},{"id":"red-roof-house","file":"models/red-roof-house.json","name":"赤い屋根の家","nameEn":"Red-Roof House","description":"芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。","author":"Claude","createdAt":"2026-09-23","blocks":88,"steps":11,"layers":10,"size":"12×12×10","raw":{"format":"blockmade.model","version":2,"units":{"xz":"stud","y":"plate (brick = 3)"},"name":"赤い屋根の家","nameEn":"Red-Roof House","description":"芝生の土台に建つ、切妻屋根の小さな家。正面に扉と2つの窓、庭には小道と植え込み。","author":"Claude","createdAt":"2026-09-23","colors":{"green":{"name":"Green","hex":"#2e8b50"},"tan":{"name":"Tan","hex":"#d6b97c"},"dark-green":{"name":"Dark Green","hex":"#1f5a3a"},"brown":{"name":"Brown","hex":"#6e452b"},"white":{"name":"White","hex":"#f0efe9"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"dark-red":{"name":"Dark Red","hex":"#7a2426"}},"steps":[{"step":1,"title":"芝生の土台","description":"緑の2×12を6本、前後方向に並べて12×12の芝生をつくります。この上に家の壁が横切るように載り、土台全体をつなぎます。"},{"step":2,"title":"庭と小道","description":"正面の庭に砂色の2×3で小道を敷き、左右に深緑の2×2で植え込みをつくります。"},{"step":3,"title":"壁の1段目","description":"砂色のブロックで10×8の壁の1段目を立てます。正面中央の2スタッドには茶色の1×2を置いて扉の下端にします。"},{"step":4,"title":"壁の2段目と窓","description":"白いブロックで2段目を積みます。継ぎ目が下の段とずれるように置き、窓の位置には透明ブルーを入れます。"},{"step":5,"title":"壁の3段目","description":"3段目も継ぎ目をずらして積みます。窓と扉はもう1段上まで続きます。"},{"step":6,"title":"壁の4段目（まぐさ）","description":"白いブロックで4段目を積み、扉と窓の上をふさぎます。壁はここまでです。"},{"step":7,"title":"軒と破風","description":"前後に屋根の軒を2列ずつ、壁より1スタッド外まで張り出して載せます。左右の壁の上には白い1×6で三角の破風の最下段をつくります。"},{"step":8,"title":"屋根 2段目","description":"1スタッド内側にずらして屋根の2段目を載せます。継ぎ目が下段と重ならないよう2×4を3本ずつ使います。破風は1×4です。"},{"step":9,"title":"屋根 3段目","description":"さらに1スタッド内側に屋根を載せ、破風の頂上に1×2を置きます。"},{"step":10,"title":"屋根 4段目","description":"屋根の4段目です。前後の列が破風の頂上をはさんで固定します。"},{"step":11,"title":"棟（むね）","description":"最後に屋根の頂上へ2×6を2本載せて、前後の屋根をつなぎます。完成です。"}],"blocks":[{"id":"block_001","type":"2x12","width":2,"depth":12,"height":3,"x":0,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_002","type":"2x12","width":2,"depth":12,"height":3,"x":2,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_003","type":"2x12","width":2,"depth":12,"height":3,"x":4,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_004","type":"2x12","width":2,"depth":12,"height":3,"x":6,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_005","type":"2x12","width":2,"depth":12,"height":3,"x":8,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_006","type":"2x12","width":2,"depth":12,"height":3,"x":10,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_007","type":"2x3","width":2,"depth":3,"height":3,"x":5,"y":3,"z":9,"rotation":0,"color":"tan","step":2},{"id":"block_008","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":3,"z":10,"rotation":0,"color":"dark-green","step":2},{"id":"block_009","type":"2x2","width":2,"depth":2,"height":3,"x":9,"y":3,"z":10,"rotation":0,"color":"dark-green","step":2},{"id":"block_010","type":"1x4","width":1,"depth":4,"height":3,"x":1,"y":3,"z":1,"rotation":90,"color":"tan","step":3},{"id":"block_011","type":"1x6","width":1,"depth":6,"height":3,"x":5,"y":3,"z":1,"rotation":90,"color":"tan","step":3},{"id":"block_012","type":"1x4","width":1,"depth":4,"height":3,"x":1,"y":3,"z":8,"rotation":90,"color":"tan","step":3},{"id":"block_013","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":3,"z":8,"rotation":90,"color":"brown","step":3},{"id":"block_014","type":"1x4","width":1,"depth":4,"height":3,"x":7,"y":3,"z":8,"rotation":90,"color":"tan","step":3},{"id":"block_015","type":"1x6","width":1,"depth":6,"height":3,"x":1,"y":3,"z":2,"rotation":0,"color":"tan","step":3},{"id":"block_016","type":"1x6","width":1,"depth":6,"height":3,"x":10,"y":3,"z":2,"rotation":0,"color":"tan","step":3},{"id":"block_017","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":6,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_018","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":6,"z":3,"rotation":0,"color":"white","step":4},{"id":"block_019","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":6,"z":4,"rotation":0,"color":"trans-blue","step":4},{"id":"block_020","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":6,"z":6,"rotation":0,"color":"white","step":4},{"id":"block_021","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":6,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_022","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":6,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_023","type":"1x1","width":1,"depth":1,"height":3,"x":10,"y":6,"z":3,"rotation":0,"color":"white","step":4},{"id":"block_024","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":6,"z":4,"rotation":0,"color":"trans-blue","step":4},{"id":"block_025","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":6,"z":6,"rotation":0,"color":"white","step":4},{"id":"block_026","type":"1x1","width":1,"depth":1,"height":3,"x":10,"y":6,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":6,"z":1,"rotation":90,"color":"white","step":4},{"id":"block_028","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":6,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_029","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":6,"z":1,"rotation":90,"color":"trans-blue","step":4},{"id":"block_030","type":"1x2","width":1,"depth":2,"height":3,"x":7,"y":6,"z":1,"rotation":90,"color":"white","step":4},{"id":"block_031","type":"1x1","width":1,"depth":1,"height":3,"x":9,"y":6,"z":1,"rotation":0,"color":"white","step":4},{"id":"block_032","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":6,"z":8,"rotation":90,"color":"trans-blue","step":4},{"id":"block_033","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":6,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_034","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":6,"z":8,"rotation":90,"color":"brown","step":4},{"id":"block_035","type":"1x1","width":1,"depth":1,"height":3,"x":7,"y":6,"z":8,"rotation":0,"color":"white","step":4},{"id":"block_036","type":"1x2","width":1,"depth":2,"height":3,"x":8,"y":6,"z":8,"rotation":90,"color":"trans-blue","step":4},{"id":"block_037","type":"1x4","width":1,"depth":4,"height":3,"x":1,"y":9,"z":1,"rotation":90,"color":"white","step":5},{"id":"block_038","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":9,"z":1,"rotation":90,"color":"trans-blue","step":5},{"id":"block_039","type":"1x4","width":1,"depth":4,"height":3,"x":7,"y":9,"z":1,"rotation":90,"color":"white","step":5},{"id":"block_040","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":9,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_041","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":9,"z":8,"rotation":90,"color":"trans-blue","step":5},{"id":"block_042","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":9,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_043","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":9,"z":8,"rotation":90,"color":"brown","step":5},{"id":"block_044","type":"1x1","width":1,"depth":1,"height":3,"x":7,"y":9,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_045","type":"1x2","width":1,"depth":2,"height":3,"x":8,"y":9,"z":8,"rotation":90,"color":"trans-blue","step":5},{"id":"block_046","type":"1x1","width":1,"depth":1,"height":3,"x":10,"y":9,"z":8,"rotation":0,"color":"white","step":5},{"id":"block_047","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":9,"z":2,"rotation":0,"color":"white","step":5},{"id":"block_048","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":9,"z":4,"rotation":0,"color":"trans-blue","step":5},{"id":"block_049","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":9,"z":6,"rotation":0,"color":"white","step":5},{"id":"block_050","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":9,"z":2,"rotation":0,"color":"white","step":5},{"id":"block_051","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":9,"z":4,"rotation":0,"color":"trans-blue","step":5},{"id":"block_052","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":9,"z":6,"rotation":0,"color":"white","step":5},{"id":"block_053","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":12,"z":1,"rotation":0,"color":"white","step":6},{"id":"block_054","type":"1x6","width":1,"depth":6,"height":3,"x":1,"y":12,"z":3,"rotation":0,"color":"white","step":6},{"id":"block_055","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":12,"z":1,"rotation":0,"color":"white","step":6},{"id":"block_056","type":"1x6","width":1,"depth":6,"height":3,"x":10,"y":12,"z":3,"rotation":0,"color":"white","step":6},{"id":"block_057","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":12,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_058","type":"1x6","width":1,"depth":6,"height":3,"x":4,"y":12,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_059","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":12,"z":8,"rotation":90,"color":"white","step":6},{"id":"block_060","type":"1x6","width":1,"depth":6,"height":3,"x":4,"y":12,"z":8,"rotation":90,"color":"white","step":6},{"id":"block_061","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":15,"z":0,"rotation":90,"color":"dark-red","step":7},{"id":"block_062","type":"2x6","width":2,"depth":6,"height":3,"x":6,"y":15,"z":0,"rotation":90,"color":"dark-red","step":7},{"id":"block_063","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":15,"z":8,"rotation":90,"color":"dark-red","step":7},{"id":"block_064","type":"2x6","width":2,"depth":6,"height":3,"x":6,"y":15,"z":8,"rotation":90,"color":"dark-red","step":7},{"id":"block_065","type":"1x6","width":1,"depth":6,"height":3,"x":1,"y":15,"z":2,"rotation":0,"color":"white","step":7},{"id":"block_066","type":"1x6","width":1,"depth":6,"height":3,"x":10,"y":15,"z":2,"rotation":0,"color":"white","step":7},{"id":"block_067","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":18,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_068","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":18,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_069","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":18,"z":1,"rotation":90,"color":"dark-red","step":8},{"id":"block_070","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":18,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_071","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":18,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_072","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":18,"z":7,"rotation":90,"color":"dark-red","step":8},{"id":"block_073","type":"1x4","width":1,"depth":4,"height":3,"x":1,"y":18,"z":3,"rotation":0,"color":"white","step":8},{"id":"block_074","type":"1x4","width":1,"depth":4,"height":3,"x":10,"y":18,"z":3,"rotation":0,"color":"white","step":8},{"id":"block_075","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":21,"z":2,"rotation":90,"color":"dark-red","step":9},{"id":"block_076","type":"2x6","width":2,"depth":6,"height":3,"x":6,"y":21,"z":2,"rotation":90,"color":"dark-red","step":9},{"id":"block_077","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":21,"z":6,"rotation":90,"color":"dark-red","step":9},{"id":"block_078","type":"2x6","width":2,"depth":6,"height":3,"x":6,"y":21,"z":6,"rotation":90,"color":"dark-red","step":9},{"id":"block_079","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":21,"z":4,"rotation":0,"color":"white","step":9},{"id":"block_080","type":"1x2","width":1,"depth":2,"height":3,"x":10,"y":21,"z":4,"rotation":0,"color":"white","step":9},{"id":"block_081","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":24,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_082","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":24,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_083","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":24,"z":3,"rotation":90,"color":"dark-red","step":10},{"id":"block_084","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":24,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_085","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":24,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_086","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":24,"z":5,"rotation":90,"color":"dark-red","step":10},{"id":"block_087","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":27,"z":4,"rotation":90,"color":"dark-red","step":11},{"id":"block_088","type":"2x6","width":2,"depth":6,"height":3,"x":6,"y":27,"z":4,"rotation":90,"color":"dark-red","step":11}]}},{"id":"star-fighter","file":"models/star-fighter.json","name":"スターファイター","nameEn":"Star Fighter","description":"展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。","author":"Claude","createdAt":"2026-09-23","blocks":31,"steps":15,"layers":10,"size":"12×15×10","raw":{"format":"blockmade.model","version":2,"units":{"xz":"stud","y":"plate (brick = 3)"},"name":"スターファイター","nameEn":"Star Fighter","description":"展示スタンドに載った小型の宇宙戦闘機。左右のエンジンポッドと透明ブルーのキャノピーつき。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"black":{"name":"Black","hex":"#25282d"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"white":{"name":"White","hex":"#f0efe9"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"red":{"name":"Red","hex":"#b23a30"},"trans-orange":{"name":"Trans Orange","hex":"#ff9b2e","opacity":0.7},"trans-red":{"name":"Trans Red","hex":"#ff4a3d","opacity":0.7},"trans-green":{"name":"Trans Green","hex":"#5fe07a","opacity":0.6}},"steps":[{"step":1,"title":"展示スタンド","description":"ダークグレーの4×6を台座に置き、黒の2×4と2×2を2段重ねて支柱にします。"},{"step":2,"title":"キール（竜骨）","description":"支柱の上に明るいグレーの2×10を前後方向に載せます。機体の背骨になります。"},{"step":3,"title":"機体の下半分","description":"キールの上に白い4×6と4×4、機首の2×4を前後に並べます。"},{"step":4,"title":"腹部の張り出し","description":"機体の下にグレーの1×6を左右1本ずつ、下から差し込みます。"},{"step":5,"title":"主翼","description":"明るいグレーの2×12を2本、左右方向に機体の上へ渡して主翼にします。"},{"step":6,"title":"機体の上半分","description":"主翼の前後に白い2×4を載せ、後ろには機体から張り出す2×4を置きます。"},{"step":7,"title":"キャノピーと機首","description":"透明ブルーの2×2でキャノピー、赤い2×2で機首の上面をつくります。"},{"step":8,"title":"メインエンジン","description":"機体後部の張り出しの下に、透明オレンジの1×2をエンジン噴射口として差し込みます。"},{"step":9,"title":"機関砲","description":"主翼の下に黒い1×4を左右1本ずつ、前向きに差し込みます。"},{"step":10,"title":"エンジンポッド","description":"主翼の上の左右にダークグレーの2×4を載せます。後ろに1スタッド張り出します。"},{"step":11,"title":"ポッドの噴射口","description":"ポッドの張り出しの下に透明オレンジの1×2を差し込みます。"},{"step":12,"title":"翼端","description":"主翼の両端に赤い1×4を載せます。"},{"step":13,"title":"背面とキャノピー上部","description":"主翼の中央にダークグレーの2×4、キャノピーの上に透明ブルーの1×2を重ねます。"},{"step":14,"title":"航行灯","description":"左の翼端に透明レッド、右の翼端に透明グリーンの1×1を載せます。"},{"step":15,"title":"尾翼","description":"背面の上に赤い1×3と1×2を重ねて尾翼を立てます。完成です。"}],"blocks":[{"id":"block_001","type":"4x6","width":4,"depth":6,"height":3,"x":4,"y":0,"z":6,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x4","width":2,"depth":4,"height":3,"x":5,"y":3,"z":7,"rotation":0,"color":"black","step":1},{"id":"block_003","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":6,"z":8,"rotation":0,"color":"black","step":1},{"id":"block_004","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":9,"z":8,"rotation":0,"color":"black","step":1},{"id":"block_005","type":"2x10","width":2,"depth":10,"height":3,"x":5,"y":12,"z":3,"rotation":0,"color":"light-gray","step":2},{"id":"block_006","type":"4x6","width":4,"depth":6,"height":3,"x":4,"y":15,"z":2,"rotation":0,"color":"white","step":3},{"id":"block_007","type":"4x4","width":4,"depth":4,"height":3,"x":4,"y":15,"z":8,"rotation":0,"color":"white","step":3},{"id":"block_008","type":"2x4","width":2,"depth":4,"height":3,"x":5,"y":15,"z":12,"rotation":0,"color":"white","step":3},{"id":"block_009","type":"1x6","width":1,"depth":6,"height":3,"x":4,"y":12,"z":4,"rotation":0,"color":"light-gray","step":4},{"id":"block_010","type":"1x6","width":1,"depth":6,"height":3,"x":7,"y":12,"z":4,"rotation":0,"color":"light-gray","step":4},{"id":"block_011","type":"2x12","width":2,"depth":12,"height":3,"x":0,"y":18,"z":3,"rotation":90,"color":"light-gray","step":5},{"id":"block_012","type":"2x12","width":2,"depth":12,"height":3,"x":0,"y":18,"z":5,"rotation":90,"color":"light-gray","step":5},{"id":"block_013","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":18,"z":7,"rotation":90,"color":"white","step":6},{"id":"block_014","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":18,"z":1,"rotation":90,"color":"white","step":6},{"id":"block_015","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":18,"z":9,"rotation":0,"color":"trans-blue","step":7},{"id":"block_016","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":18,"z":12,"rotation":0,"color":"red","step":7},{"id":"block_017","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":15,"z":1,"rotation":90,"color":"trans-orange","step":8},{"id":"block_018","type":"1x4","width":1,"depth":4,"height":3,"x":2,"y":15,"z":6,"rotation":0,"color":"black","step":9},{"id":"block_019","type":"1x4","width":1,"depth":4,"height":3,"x":9,"y":15,"z":6,"rotation":0,"color":"black","step":9},{"id":"block_020","type":"2x4","width":2,"depth":4,"height":3,"x":1,"y":21,"z":2,"rotation":0,"color":"dark-gray","step":10},{"id":"block_021","type":"2x4","width":2,"depth":4,"height":3,"x":9,"y":21,"z":2,"rotation":0,"color":"dark-gray","step":10},{"id":"block_022","type":"1x2","width":1,"depth":2,"height":3,"x":1,"y":18,"z":2,"rotation":90,"color":"trans-orange","step":11},{"id":"block_023","type":"1x2","width":1,"depth":2,"height":3,"x":9,"y":18,"z":2,"rotation":90,"color":"trans-orange","step":11},{"id":"block_024","type":"1x4","width":1,"depth":4,"height":3,"x":0,"y":21,"z":3,"rotation":0,"color":"red","step":12},{"id":"block_025","type":"1x4","width":1,"depth":4,"height":3,"x":11,"y":21,"z":3,"rotation":0,"color":"red","step":12},{"id":"block_026","type":"2x4","width":2,"depth":4,"height":3,"x":5,"y":21,"z":3,"rotation":0,"color":"dark-gray","step":13},{"id":"block_027","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":21,"z":9,"rotation":90,"color":"trans-blue","step":13},{"id":"block_028","type":"1x1","width":1,"depth":1,"height":3,"x":0,"y":24,"z":5,"rotation":0,"color":"trans-red","step":14},{"id":"block_029","type":"1x1","width":1,"depth":1,"height":3,"x":11,"y":24,"z":5,"rotation":0,"color":"trans-green","step":14},{"id":"block_030","type":"1x3","width":1,"depth":3,"height":3,"x":5,"y":24,"z":3,"rotation":0,"color":"red","step":15},{"id":"block_031","type":"1x2","width":1,"depth":2,"height":3,"x":5,"y":27,"z":3,"rotation":0,"color":"red","step":15}]}},{"id":"block-robot","file":"models/block-robot.json","name":"ブロックロボ","nameEn":"Block Robot","description":"胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。","author":"Claude","createdAt":"2026-09-23","blocks":39,"steps":13,"layers":14,"size":"10×4×14","raw":{"format":"blockmade.model","version":2,"units":{"xz":"stud","y":"plate (brick = 3)"},"name":"ブロックロボ","nameEn":"Block Robot","description":"胸にランプ、黄色い目、2本のアンテナをもつ直立ロボット。腕は肩から吊り下げる構造。","author":"Claude","createdAt":"2026-09-23","colors":{"dark-gray":{"name":"Dark Gray","hex":"#59616b"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"blue":{"name":"Blue","hex":"#2f63b8"},"trans-red":{"name":"Trans Red","hex":"#ff4a3d","opacity":0.7},"black":{"name":"Black","hex":"#25282d"},"red":{"name":"Red","hex":"#b23a30"},"trans-yellow":{"name":"Trans Yellow","hex":"#ffe45c","opacity":0.7}},"steps":[{"step":1,"title":"足","description":"ダークグレーの2×4を2つ、2スタッド空けて並べます。"},{"step":2,"title":"脚","description":"足の中央に2×2を3段ずつ積みます。真ん中の段はひざとしてダークグレーにします。"},{"step":3,"title":"腰","description":"ダークグレーの2×6を左右の脚にまたがせて載せ、両脚をつなぎます。"},{"step":4,"title":"胴体の下段","description":"青い4×6を腰の上に載せます。前後に1スタッドずつ張り出します。"},{"step":5,"title":"胸とランプ","description":"青い2×4を左右に、中央に2×3を置き、正面中央には透明レッドの1×2をランプとして入れます。"},{"step":6,"title":"胴体の上段","description":"青い4×6で胸の部品をまとめてふさぎます。"},{"step":7,"title":"肩","description":"ダークグレーの2×10を胴体の上に左右方向に渡します。両端が2スタッドずつ張り出して腕の付け根になります。"},{"step":8,"title":"腕","description":"肩の張り出しの下に2×2を上から順に3段ずつ吊り下げ、いちばん下は黒い手にします。"},{"step":9,"title":"肩当て","description":"肩の両端の上に赤い2×2を載せます。"},{"step":10,"title":"首と頭の後ろ","description":"肩の中央にダークグレーの2×2で首を立て、その上に明るいグレーの2×6で頭の後ろ半分をつくります。"},{"step":11,"title":"頭のてっぺん","description":"明るいグレーの1×6を後ろに、2×6を前に載せます。前の2×6は顔の部分まで1スタッド張り出します。"},{"step":12,"title":"顔","description":"てっぺんの張り出しの下に顔の部品を差し込みます。透明イエローの1×1が目になります。"},{"step":13,"title":"アンテナ","description":"頭の上にダークグレーの1×1を2本立て、先端に透明レッドの1×1を載せて完成です。"}],"blocks":[{"id":"block_001","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_002","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":0,"z":0,"rotation":0,"color":"dark-gray","step":1},{"id":"block_003","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_004","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":6,"z":1,"rotation":0,"color":"dark-gray","step":2},{"id":"block_005","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":9,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_006","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":3,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_007","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":6,"z":1,"rotation":0,"color":"dark-gray","step":2},{"id":"block_008","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":9,"z":1,"rotation":0,"color":"light-gray","step":2},{"id":"block_009","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":12,"z":1,"rotation":90,"color":"dark-gray","step":3},{"id":"block_010","type":"4x6","width":4,"depth":6,"height":3,"x":0,"y":15,"z":0,"rotation":90,"color":"blue","step":4},{"id":"block_011","type":"2x4","width":2,"depth":4,"height":3,"x":0,"y":18,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_012","type":"2x4","width":2,"depth":4,"height":3,"x":4,"y":18,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_013","type":"2x3","width":2,"depth":3,"height":3,"x":2,"y":18,"z":0,"rotation":0,"color":"blue","step":5},{"id":"block_014","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":18,"z":3,"rotation":90,"color":"trans-red","step":5},{"id":"block_015","type":"4x6","width":4,"depth":6,"height":3,"x":0,"y":21,"z":0,"rotation":90,"color":"blue","step":6},{"id":"block_016","type":"2x10","width":2,"depth":10,"height":3,"x":-2,"y":24,"z":1,"rotation":90,"color":"dark-gray","step":7},{"id":"block_017","type":"2x2","width":2,"depth":2,"height":3,"x":-2,"y":21,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_018","type":"2x2","width":2,"depth":2,"height":3,"x":-2,"y":18,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_019","type":"2x2","width":2,"depth":2,"height":3,"x":-2,"y":15,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_020","type":"2x2","width":2,"depth":2,"height":3,"x":-2,"y":12,"z":1,"rotation":0,"color":"black","step":8},{"id":"block_021","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":21,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_022","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":18,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_023","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":15,"z":1,"rotation":0,"color":"light-gray","step":8},{"id":"block_024","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":12,"z":1,"rotation":0,"color":"black","step":8},{"id":"block_025","type":"2x2","width":2,"depth":2,"height":3,"x":-2,"y":27,"z":1,"rotation":0,"color":"red","step":9},{"id":"block_026","type":"2x2","width":2,"depth":2,"height":3,"x":6,"y":27,"z":1,"rotation":0,"color":"red","step":9},{"id":"block_027","type":"2x2","width":2,"depth":2,"height":3,"x":2,"y":27,"z":1,"rotation":0,"color":"dark-gray","step":10},{"id":"block_028","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":30,"z":1,"rotation":90,"color":"light-gray","step":10},{"id":"block_029","type":"1x6","width":1,"depth":6,"height":3,"x":0,"y":33,"z":1,"rotation":90,"color":"light-gray","step":11},{"id":"block_030","type":"2x6","width":2,"depth":6,"height":3,"x":0,"y":33,"z":2,"rotation":90,"color":"light-gray","step":11},{"id":"block_031","type":"1x1","width":1,"depth":1,"height":3,"x":0,"y":30,"z":3,"rotation":0,"color":"light-gray","step":12},{"id":"block_032","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":30,"z":3,"rotation":0,"color":"trans-yellow","step":12},{"id":"block_033","type":"1x2","width":1,"depth":2,"height":3,"x":2,"y":30,"z":3,"rotation":90,"color":"light-gray","step":12},{"id":"block_034","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":30,"z":3,"rotation":0,"color":"trans-yellow","step":12},{"id":"block_035","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":30,"z":3,"rotation":0,"color":"light-gray","step":12},{"id":"block_036","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":36,"z":2,"rotation":0,"color":"dark-gray","step":13},{"id":"block_037","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":36,"z":2,"rotation":0,"color":"dark-gray","step":13},{"id":"block_038","type":"1x1","width":1,"depth":1,"height":3,"x":1,"y":39,"z":2,"rotation":0,"color":"trans-red","step":13},{"id":"block_039","type":"1x1","width":1,"depth":1,"height":3,"x":4,"y":39,"z":2,"rotation":0,"color":"trans-red","step":13}]}},{"id":"tokyo-tower","file":"models/tokyo-tower.json","name":"東京タワー","nameEn":"Tokyo Tower","description":"4本の脚が細くなっていく赤白の電波塔。プレート・タイル・スロープ・アーチ・丸ブロック・コーンを使った作例。","author":"Claude","createdAt":"2026-09-24","blocks":71,"steps":23,"layers":25,"size":"16×16×21.7","raw":{"format":"blockmade.model","version":2,"units":{"xz":"stud","y":"plate (brick = 3)"},"name":"東京タワー","nameEn":"Tokyo Tower","description":"4本の脚が細くなっていく赤白の電波塔。プレート・タイル・スロープ・アーチ・丸ブロック・コーンを使った作例。","author":"Claude","createdAt":"2026-09-24","colors":{"green":{"name":"Green","hex":"#2e8b50"},"light-gray":{"name":"Light Gray","hex":"#a8afb7"},"white":{"name":"White","hex":"#f0efe9"},"red":{"name":"Red","hex":"#b23a30"},"orange":{"name":"Orange","hex":"#e0772b"},"trans-blue":{"name":"Trans Blue","hex":"#7cc3f0","opacity":0.55},"dark-gray":{"name":"Dark Gray","hex":"#59616b"}},"steps":[{"step":1,"title":"土台のプレート","description":"緑の8×8プレートを4枚並べて、16×16の土台をつくります。"},{"step":2,"title":"中央のプレート","description":"明るいグレーの8×8プレートを中央に重ね、4枚の土台をまとめて固定します。"},{"step":3,"title":"正面ゲート","description":"正面に白い1×1を2本立て、その上に1×6アーチを渡し、白い1×6タイルで仕上げます。"},{"step":4,"title":"脚 1段目","description":"オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。四隅の土台プレートの上から始めます。"},{"step":5,"title":"脚 2段目","description":"白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"},{"step":6,"title":"脚 3段目","description":"オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"},{"step":7,"title":"脚 4段目","description":"白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"},{"step":8,"title":"脚 5段目","description":"オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"},{"step":9,"title":"脚 6段目","description":"白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"},{"step":10,"title":"展望台の床","description":"白い8×8プレートを4本の脚の上に載せて、展望台の床にします。"},{"step":11,"title":"展望台の窓","description":"透明ブルーの1×8を前後、1×6を左右に置いて、窓の輪をつくります。"},{"step":12,"title":"展望台の屋根","description":"明るいグレーの8×8プレートで窓の輪にふたをします。"},{"step":13,"title":"屋根のスロープとタイル","description":"4×2スロープを四方に外向きに置き、四隅の空いたところを2×2タイルで平らに仕上げます。"},{"step":14,"title":"上部の塔 1段目","description":"オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":15,"title":"上部の塔 2段目","description":"白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":16,"title":"上部の塔 3段目","description":"オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":17,"title":"上部の塔 4段目","description":"白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":18,"title":"上部の塔 5段目","description":"オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":19,"title":"上部の塔 6段目","description":"白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"},{"step":20,"title":"特別展望台の床","description":"白い6×6プレートを塔の上に載せます。"},{"step":21,"title":"特別展望台の窓","description":"透明ブルーの1×6を前後、1×4を左右に置いて、小さな窓の輪をつくります。"},{"step":22,"title":"特別展望台の屋根","description":"明るいグレーの6×6プレートでふたをします。"},{"step":23,"title":"アンテナ","description":"2×2丸ブロックをオレンジ・白の順に2個、1×1丸ブロックを3個重ね、最後に白いコーンを載せて完成です。"}],"blocks":[{"id":"block_001","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_002","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":8,"y":0,"z":0,"rotation":0,"color":"green","step":1},{"id":"block_003","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":0,"y":0,"z":8,"rotation":0,"color":"green","step":1},{"id":"block_004","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":8,"y":0,"z":8,"rotation":0,"color":"green","step":1},{"id":"block_005","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":1,"z":4,"rotation":0,"color":"light-gray","step":2},{"id":"block_006","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":1,"z":12,"rotation":0,"color":"white","step":3},{"id":"block_007","type":"1x1","width":1,"depth":1,"height":3,"x":10,"y":1,"z":12,"rotation":0,"color":"white","step":3},{"id":"block_008","shape":"arch","type":"arch-1x6","width":1,"depth":6,"height":3,"x":5,"y":4,"z":12,"rotation":90,"color":"red","step":3},{"id":"block_009","shape":"tile","type":"tile-1x6","width":1,"depth":6,"height":1,"x":5,"y":7,"z":12,"rotation":90,"color":"white","step":3},{"id":"block_010","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":1,"z":0,"rotation":0,"color":"orange","step":4},{"id":"block_011","type":"2x2","width":2,"depth":2,"height":3,"x":14,"y":1,"z":0,"rotation":0,"color":"orange","step":4},{"id":"block_012","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":1,"z":14,"rotation":0,"color":"orange","step":4},{"id":"block_013","type":"2x2","width":2,"depth":2,"height":3,"x":14,"y":1,"z":14,"rotation":0,"color":"orange","step":4},{"id":"block_014","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":4,"z":1,"rotation":0,"color":"white","step":5},{"id":"block_015","type":"2x2","width":2,"depth":2,"height":3,"x":13,"y":4,"z":1,"rotation":0,"color":"white","step":5},{"id":"block_016","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":4,"z":13,"rotation":0,"color":"white","step":5},{"id":"block_017","type":"2x2","width":2,"depth":2,"height":3,"x":13,"y":4,"z":13,"rotation":0,"color":"white","step":5},{"id":"block_018","type":"2x2","width":2,"depth":2,"height":3,"x":2,"y":7,"z":2,"rotation":0,"color":"orange","step":6},{"id":"block_019","type":"2x2","width":2,"depth":2,"height":3,"x":12,"y":7,"z":2,"rotation":0,"color":"orange","step":6},{"id":"block_020","type":"2x2","width":2,"depth":2,"height":3,"x":2,"y":7,"z":12,"rotation":0,"color":"orange","step":6},{"id":"block_021","type":"2x2","width":2,"depth":2,"height":3,"x":12,"y":7,"z":12,"rotation":0,"color":"orange","step":6},{"id":"block_022","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":10,"z":3,"rotation":0,"color":"white","step":7},{"id":"block_023","type":"2x2","width":2,"depth":2,"height":3,"x":11,"y":10,"z":3,"rotation":0,"color":"white","step":7},{"id":"block_024","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":10,"z":11,"rotation":0,"color":"white","step":7},{"id":"block_025","type":"2x2","width":2,"depth":2,"height":3,"x":11,"y":10,"z":11,"rotation":0,"color":"white","step":7},{"id":"block_026","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":13,"z":4,"rotation":0,"color":"orange","step":8},{"id":"block_027","type":"2x2","width":2,"depth":2,"height":3,"x":10,"y":13,"z":4,"rotation":0,"color":"orange","step":8},{"id":"block_028","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":13,"z":10,"rotation":0,"color":"orange","step":8},{"id":"block_029","type":"2x2","width":2,"depth":2,"height":3,"x":10,"y":13,"z":10,"rotation":0,"color":"orange","step":8},{"id":"block_030","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":16,"z":5,"rotation":0,"color":"white","step":9},{"id":"block_031","type":"2x2","width":2,"depth":2,"height":3,"x":9,"y":16,"z":5,"rotation":0,"color":"white","step":9},{"id":"block_032","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":16,"z":9,"rotation":0,"color":"white","step":9},{"id":"block_033","type":"2x2","width":2,"depth":2,"height":3,"x":9,"y":16,"z":9,"rotation":0,"color":"white","step":9},{"id":"block_034","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":19,"z":4,"rotation":0,"color":"white","step":10},{"id":"block_035","type":"1x8","width":1,"depth":8,"height":3,"x":4,"y":20,"z":4,"rotation":90,"color":"trans-blue","step":11},{"id":"block_036","type":"1x8","width":1,"depth":8,"height":3,"x":4,"y":20,"z":11,"rotation":90,"color":"trans-blue","step":11},{"id":"block_037","type":"1x6","width":1,"depth":6,"height":3,"x":4,"y":20,"z":5,"rotation":0,"color":"trans-blue","step":11},{"id":"block_038","type":"1x6","width":1,"depth":6,"height":3,"x":11,"y":20,"z":5,"rotation":0,"color":"trans-blue","step":11},{"id":"block_039","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":23,"z":4,"rotation":0,"color":"light-gray","step":12},{"id":"block_040","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":6,"y":24,"z":10,"rotation":0,"color":"dark-gray","step":13},{"id":"block_041","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":6,"y":24,"z":4,"rotation":180,"color":"dark-gray","step":13},{"id":"block_042","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":4,"y":24,"z":6,"rotation":270,"color":"dark-gray","step":13},{"id":"block_043","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":10,"y":24,"z":6,"rotation":90,"color":"dark-gray","step":13},{"id":"block_044","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":4,"y":24,"z":4,"rotation":0,"color":"light-gray","step":13},{"id":"block_045","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":10,"y":24,"z":4,"rotation":0,"color":"light-gray","step":13},{"id":"block_046","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":4,"y":24,"z":10,"rotation":0,"color":"light-gray","step":13},{"id":"block_047","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":10,"y":24,"z":10,"rotation":0,"color":"light-gray","step":13},{"id":"block_048","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":24,"z":6,"rotation":0,"color":"orange","step":14},{"id":"block_049","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":24,"z":6,"rotation":0,"color":"orange","step":14},{"id":"block_050","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":27,"z":6,"rotation":90,"color":"white","step":15},{"id":"block_051","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":27,"z":8,"rotation":90,"color":"white","step":15},{"id":"block_052","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":30,"z":6,"rotation":0,"color":"orange","step":16},{"id":"block_053","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":30,"z":6,"rotation":0,"color":"orange","step":16},{"id":"block_054","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":33,"z":6,"rotation":90,"color":"white","step":17},{"id":"block_055","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":33,"z":8,"rotation":90,"color":"white","step":17},{"id":"block_056","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":36,"z":6,"rotation":0,"color":"orange","step":18},{"id":"block_057","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":36,"z":6,"rotation":0,"color":"orange","step":18},{"id":"block_058","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":39,"z":6,"rotation":90,"color":"white","step":19},{"id":"block_059","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":39,"z":8,"rotation":90,"color":"white","step":19},{"id":"block_060","shape":"plate","type":"plate-6x6","width":6,"depth":6,"height":1,"x":5,"y":42,"z":5,"rotation":0,"color":"white","step":20},{"id":"block_061","type":"1x6","width":1,"depth":6,"height":3,"x":5,"y":43,"z":5,"rotation":90,"color":"trans-blue","step":21},{"id":"block_062","type":"1x6","width":1,"depth":6,"height":3,"x":5,"y":43,"z":10,"rotation":90,"color":"trans-blue","step":21},{"id":"block_063","type":"1x4","width":1,"depth":4,"height":3,"x":5,"y":43,"z":6,"rotation":0,"color":"trans-blue","step":21},{"id":"block_064","type":"1x4","width":1,"depth":4,"height":3,"x":10,"y":43,"z":6,"rotation":0,"color":"trans-blue","step":21},{"id":"block_065","shape":"plate","type":"plate-6x6","width":6,"depth":6,"height":1,"x":5,"y":46,"z":5,"rotation":0,"color":"light-gray","step":22},{"id":"block_066","shape":"round-brick","type":"round-brick-2x2","width":2,"depth":2,"height":3,"x":7,"y":47,"z":7,"rotation":0,"color":"orange","step":23},{"id":"block_067","shape":"round-brick","type":"round-brick-2x2","width":2,"depth":2,"height":3,"x":7,"y":50,"z":7,"rotation":0,"color":"white","step":23},{"id":"block_068","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":53,"z":7,"rotation":0,"color":"orange","step":23},{"id":"block_069","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":56,"z":7,"rotation":0,"color":"white","step":23},{"id":"block_070","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":59,"z":7,"rotation":0,"color":"orange","step":23},{"id":"block_071","shape":"cone","type":"cone-1x1","width":1,"depth":1,"height":3,"x":7,"y":62,"z":7,"rotation":0,"color":"white","step":23}]}}]};
 </script>
 <!-- Three.js and OrbitControls (MIT). tools/build.mjs inlines both, so the
      published page loads no external scripts at all. -->
@@ -1819,7 +1906,7 @@ function startApp() {
     return;
   }
 }
-const { normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, STANDARD_COLORS, BRICK_SIZES } = window.BlockModel;
+const { normalizeModel, validateModel, describeIssues, autoRepair, fromCompact, modelToJSON, STANDARD_COLORS, PARTS } = window.BlockModel;
 const DRAFTS_KEY = 'blockmade.drafts.v1', LAST_KEY = 'blockmade.lastWork.v1';
 
 /* ======================================================================
@@ -1827,23 +1914,45 @@ const DRAFTS_KEY = 'blockmade.drafts.v1', LAST_KEY = 'blockmade.lastWork.v1';
    ====================================================================== */
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const typeLabel = t => String(t).replace(/x/gi, '×');
+/** Human label for a part: "2×4", "1×2×2", "スロープ 2×2", "プレート 2×6". */
+function partLabel(b) {
+  const dims = `${b.width}×${b.depth}`;
+  if (!b.shape || b.shape === 'brick') return b.height && b.height !== 3 ? `${dims}×${b.height / 3}` : dims;
+  const p = PARTS[b.shape];
+  return `${p ? p.ja : b.shape} ${dims}${p && b.height !== p.heights[0] ? `（高さ${b.height}）` : ''}`;
+}
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const colorOf = key => state.model.colors[key] || { name: key, hex: '#ff4fd8', opacity: 1 };
 const colorName = key => colorOf(key).name;
-const layerOf = b => b.h > 1 ? `${b.y + 1}–${b.y + b.h}` : `${b.y + 1}`;
+const layerOf = b => {
+  const lv = state.model.levels, idx = lv.map((y, i) => (y >= b.y && y < b.y + b.h ? i + 1 : 0)).filter(Boolean);
+  return idx.length > 1 ? `${idx[0]}–${idx[idx.length - 1]}` : `${idx[0] || b.level + 1}`;
+};
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 };
 
-function glyph(w, d, hex) {
-  const cols = Math.max(w, d), rows = Math.min(w, d), s = Math.min(7, Math.floor(58 / cols));
-  const W = cols * s + 2, H = rows * s + 2;
+function glyph(w, d, hex, shape = 'brick') {
+  // top view: depth horizontal (slopes descend to the right), width vertical
+  const p = PARTS[shape] || PARTS.brick, cols = Math.max(w, d), rows = Math.min(w, d), s = Math.min(7, Math.floor(58 / cols));
+  const W = cols * s + 2, H = rows * s + 2, horiz = d >= w;
+  const studAt = (i, j) => {
+    const sIdx = horiz ? i : j, last = horiz ? cols - 1 : rows - 1;
+    return p.top === 'all' || (p.top === 'back' && sIdx === 0) || (p.top === 'ends' && (sIdx === 0 || sIdx === last));
+  };
+  let body = p.round
+    ? `<ellipse cx="${W / 2}" cy="${H / 2}" rx="${W / 2 - .5}" ry="${H / 2 - .5}" fill="${hex}" stroke="rgba(0,0,0,.45)"/>`
+    : `<rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>`;
+  if (shape === 'slope') body += `<rect x="${1 + s}" y="1" width="${W - 2 - s}" height="${H - 2}" fill="url(#gl-sl)" opacity=".6"/>`;
+  if (shape === 'cone') body += `<circle cx="${W / 2}" cy="${H / 2}" r="${Math.min(W, H) / 5}" fill="rgba(255,255,255,.3)"/>`;
   let studs = '';
-  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="${(s * 0.31).toFixed(2)}" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
-  return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="1.5" fill="${hex}" stroke="rgba(0,0,0,.45)"/>${studs}</svg>`;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) if (studAt(i, j))
+    studs += `<circle cx="${1 + s * i + s / 2}" cy="${1 + s * j + s / 2}" r="${(s * 0.31).toFixed(2)}" fill="rgba(255,255,255,.28)" stroke="rgba(0,0,0,.25)" stroke-width=".6"/>`;
+  const defs = shape === 'slope' ? `<defs><linearGradient id="gl-sl"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>` : '';
+  return `<svg class="glyph" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${defs}${body}${studs}</svg>`;
 }
+const glyphOf = (b, hex) => glyph(b.width, b.depth, hex, b.shape);
 const swatch = key => `<span class="sw" style="background:${esc(colorOf(key).hex)}"></span>`;
 
 /* ======================================================================
@@ -1864,7 +1973,7 @@ const curStep = () => state.model.steps[state.stepIdx];
    3. 3D SCENE (Three.js)
    ====================================================================== */
 const Scene = (() => {
-  const H = 1.2, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;
+  const H = 0.4, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;   // H = one plate (brick = 3 plates)
   const ACCENT = new THREE.Color('#f2b544'), SELECT = new THREE.Color('#5fd6e8'), WHITE = new THREE.Color('#ffffff'), BLACK = new THREE.Color('#000000');
   const viewEl = $('#viewport'), canvas = $('#gl');
 
@@ -1922,27 +2031,59 @@ const Scene = (() => {
 
   const geoCache = new Map();
   const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 20);
-  function boxGeo(sx, h, sz) {
-    const k = `${sx}|${h}|${sz}`;
-    if (!geoCache.has(k)) {
-      const g = new THREE.BoxGeometry(sx - GAP, h * H - GAP, sz - GAP);
-      geoCache.set(k, { box: g, edges: new THREE.EdgesGeometry(g) });
+  const PROFILE = { slope: 1, 'slope-inv': 1, arch: 1 };
+
+  /** Side profile (s along the part's depth, y up) of slopes and arches. */
+  function profileShape(kind, d, hh) {
+    const g = GAP / 2, y0 = -hh / 2 + g, y1 = hh / 2 - g, s0 = -d / 2 + g, s1 = d / 2 - g, back = -d / 2 + 1 - g;
+    const lip = Math.min(0.22, hh * 0.18), sh = new THREE.Shape();
+    if (kind === 'slope') { sh.moveTo(s0, y0); sh.lineTo(s1, y0); sh.lineTo(s1, y0 + lip); sh.lineTo(back, y1); sh.lineTo(s0, y1); }
+    else if (kind === 'slope-inv') { sh.moveTo(s0, y0); sh.lineTo(back, y0); sh.lineTo(s1, y1 - lip); sh.lineTo(s1, y1); sh.lineTo(s0, y1); }
+    else {
+      const rx = d / 2 - 1 + g, ry = Math.min(hh - 0.3, hh * 0.72);
+      sh.moveTo(s0, y0); sh.lineTo(-rx, y0);
+      for (let i = 1; i < 18; i++) { const t = Math.PI - Math.PI * i / 18; sh.lineTo(rx * Math.cos(t), y0 + ry * Math.sin(t)); }
+      sh.lineTo(rx, y0); sh.lineTo(s1, y0); sh.lineTo(s1, y1); sh.lineTo(s0, y1);
     }
-    return geoCache.get(k);
+    sh.closePath();
+    return sh;
+  }
+  /** Body geometry for a block. Profile parts are built facing +Z and rotated by the mesh. */
+  function bodyGeo(b) {
+    const hh = b.h * H, part = PARTS[b.shape] || PARTS.brick;
+    const k = PROFILE[b.shape] ? `${b.shape}|${b.width}|${b.depth}|${b.h}` : part.round ? `${b.shape}|${b.width}|${b.h}` : `box|${b.sx}|${b.h}|${b.sz}`;
+    if (geoCache.has(k)) return geoCache.get(k);
+    let body, rotate = false, edgeAngle = 1;
+    if (PROFILE[b.shape]) {
+      body = new THREE.ExtrudeGeometry(profileShape(b.shape, b.depth, hh), { depth: b.width - GAP, bevelEnabled: false, curveSegments: 8 });
+      body.rotateY(-Math.PI / 2);
+      body.translate((b.width - GAP) / 2, 0, 0);
+      rotate = true; edgeAngle = 20;
+    } else if (b.shape === 'cone') {
+      body = new THREE.CylinderGeometry(b.width * 0.22, b.width / 2 - 0.03, hh - GAP, 28);
+      edgeAngle = 40;
+    } else if (part.round) {
+      body = new THREE.CylinderGeometry(b.width / 2 - 0.03, b.width / 2 - 0.03, hh - GAP, 28);
+      edgeAngle = 40;
+    } else body = new THREE.BoxGeometry(b.sx - GAP, hh - GAP, b.sz - GAP);
+    const entry = { body, edges: new THREE.EdgesGeometry(body, edgeAngle), rotate };
+    geoCache.set(k, entry);
+    return entry;
   }
 
-  // All studs of one brick size merged into a single geometry (one draw call per brick).
+  // The studs of one block merged into a single geometry (one draw call per block).
   const studCache = new Map();
-  function studsGeo(sx, sz, h) {
-    const k = `${sx}|${h}|${sz}`;
+  function studsGeo(b) {
+    const rel = b.topCells.map(([cx, cz]) => [cx - b.x - b.sx / 2 + 0.5, cz - b.z - b.sz / 2 + 0.5]);
+    const k = `${b.h}|${rel.map(c => c.join(':')).join(';')}`;
     if (studCache.has(k)) return studCache.get(k);
     const one = studGeo.toNonIndexed();
     const src = one.attributes;
-    const n = src.position.count, total = n * sx * sz;
+    const n = src.position.count, total = n * rel.length;
     const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), uv = new Float32Array(total * 2);
     let o = 0;
-    for (let i = 0; i < sx; i++) for (let j = 0; j < sz; j++) {
-      const dx = i - sx / 2 + 0.5, dy = h * H / 2 + STUD_H / 2 - GAP / 2, dz = j - sz / 2 + 0.5;
+    const dy = b.h * H / 2 + STUD_H / 2 - GAP / 2;
+    for (const [dx, dz] of rel) {
       for (let v = 0; v < n; v++, o++) {
         pos[o * 3] = src.position.getX(v) + dx; pos[o * 3 + 1] = src.position.getY(v) + dy; pos[o * 3 + 2] = src.position.getZ(v) + dz;
         nor[o * 3] = src.normal.getX(v); nor[o * 3 + 1] = src.normal.getY(v); nor[o * 3 + 2] = src.normal.getZ(v);
@@ -2003,10 +2144,10 @@ const Scene = (() => {
       const c = m.colors[b.color];
       const base = { color: new THREE.Color(c.hex), roughness: c.roughness, metalness: c.metalness, transparent: c.opacity < 1, opacity: c.opacity, depthWrite: c.opacity >= 1 };
       const mat = new THREE.MeshStandardMaterial(base);
-      const g = boxGeo(b.sx, b.h, b.sz);
+      const g = bodyGeo(b);
       let meshMat = mat;
       const mats = [mat];
-      if (b.print && FACE_INDEX[b.print.face] !== undefined) {
+      if (b.print && !g.rotate && b.shape === 'brick' && FACE_INDEX[b.print.face] !== undefined) {
         const f = b.print.face, fw = f.includes('x') ? b.sz : b.sx, fh = b.h * H;
         const tex = makePrintTexture(b.print.pattern, fw, fh, c.hex, live);
         if (tex) {
@@ -2017,17 +2158,22 @@ const Scene = (() => {
         }
       }
       const bg = new THREE.Group();
-      const mesh = new THREE.Mesh(g.box, meshMat);
+      const mesh = new THREE.Mesh(g.body, meshMat);
       mesh.castShadow = mesh.receiveShadow = shadows;
       mesh.userData.blockId = b.id;
+      if (g.rotate) mesh.rotation.y = b.rotation * Math.PI / 180;
       bg.add(mesh);
-      const studMesh = new THREE.Mesh(studsGeo(b.sx, b.sz, b.h), mat);
-      studMesh.castShadow = shadows;
-      studMesh.userData.blockId = b.id;
-      bg.add(studMesh);
-      const studs = [studMesh];
+      const studs = [];
+      if (b.topCells.length) {
+        const studMesh = new THREE.Mesh(studsGeo(b), mat);
+        studMesh.castShadow = shadows;
+        studMesh.userData.blockId = b.id;
+        bg.add(studMesh);
+        studs.push(studMesh);
+      }
       const line = new THREE.LineSegments(g.edges, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
       line.raycast = () => {};
+      line.rotation.y = mesh.rotation.y;
       bg.add(line);
       const py = b.y * H + b.h * H / 2;
       bg.position.set(b.x + b.sx / 2 - center.x, py, b.z + b.sz / 2 - center.z);
@@ -2066,9 +2212,9 @@ const Scene = (() => {
       const b = r.b;
       let vis = state.mode === 'complete' || b.step <= step, ghost = false;
       if (L > 0) {
-        const li = L - 1, top = b.y + b.h - 1;
-        if (b.y > li) vis = false;
-        else if (top < li) { if (state.layerOnly) vis = false; else ghost = true; }
+        const ly = state.model.levels[L - 1];
+        if (b.y > ly) vis = false;
+        else if (b.y + b.h <= ly) { if (state.layerOnly) vis = false; else ghost = true; }
       }
       const isNew = vis && !ghost && state.mode === 'build' && b.step === step;
       const sel = b.id === state.selectedId;
@@ -2118,7 +2264,7 @@ const Scene = (() => {
     for (const r of list) {
       if (r.st && r.st.vis === false) continue;
       const b = r.b;
-      const y = r.baseY + expl * b.y * EXPLODE;
+      const y = r.baseY + expl * b.level * EXPLODE;
       const hx = b.sx / 2, hz = b.sz / 2, hy = b.h * H / 2;
       box.expandByPoint(new THREE.Vector3(r.group.position.x - hx, y - hy, r.group.position.z - hz));
       box.expandByPoint(new THREE.Vector3(r.group.position.x + hx, y + hy + STUD_H, r.group.position.z + hz));
@@ -2212,7 +2358,7 @@ const Scene = (() => {
         const t = (now - r.dropStart) / 480;
         if (t >= 1) r.dropStart = null; else drop = t < 0 ? DROP : (1 - easeOutBack(t)) * DROP;
       }
-      r.group.position.y = r.baseY + explodeT * r.b.y * EXPLODE + drop;
+      r.group.position.y = r.baseY + explodeT * r.b.level * EXPLODE + drop;
       const s = r.st;
       let col = BLACK, inten = 0;
       if (s.sel) { col = SELECT; inten = 0.5; }
@@ -2306,10 +2452,10 @@ function renderSteps() {
       <dl class="stats">
         <div><dt>ブロック</dt><dd>${m.blocks.length}</dd></div>
         <div><dt>Step</dt><dd>${m.steps.length}</dd></div>
-        <div><dt>高さ(段)</dt><dd>${m.layers}</dd></div>
+        <div><dt>高さ(ブロック)</dt><dd>${+(m.heightPlates / 3).toFixed(1)}</dd></div>
         <div><dt>底面</dt><dd>${w}×${d}</dd></div>
       </dl>
-      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色。「▶ 再生」で Step 1 から自動で組み上げます。</p>
+      <p style="margin:12px 0 0;font-size:12.5px;color:var(--muted)">部品 ${types} 種類 · ${Object.keys(m.colors).length} 色 · ${m.layers} レイヤー。「▶ 再生」で Step 1 から自動で組み上げます。</p>
     </div>`;
     prev.disabled = true;
     next.textContent = state.stepIdx > 0 ? `Step ${state.stepIdx + 1} から再開 →` : 'Step 1 から組み立てる →';
@@ -2323,7 +2469,7 @@ function renderSteps() {
     <div class="step-num">Step ${i + 1}<small>/ ${m.steps.length}</small></div>
     <div class="step-title">${esc(s.title)}</div>
     <div class="sub">追加するブロック</div>
-    <ul class="adds">${groups.map(g => { const b = g[0], c = colorOf(b.color); return `<li>${glyph(b.width, b.depth, c.hex)}<span class="nm">${typeLabel(b.type)} ${esc(c.name)}</span><span class="ct">×${g.length}</span></li>`; }).join('')}</ul>
+    <ul class="adds">${groups.map(g => { const b = g[0], c = colorOf(b.color); return `<li>${glyphOf(b, c.hex)}<span class="nm">${partLabel(b)} ${esc(c.name)}</span><span class="ct">×${g.length}</span></li>`; }).join('')}</ul>
     <div class="sub">説明</div>
     <p class="desc">${esc(s.description || '—')}</p>
     <div class="progress" aria-hidden="true"><span style="width:${(placed / m.blocks.length * 100).toFixed(1)}%"></span></div>
@@ -2350,7 +2496,7 @@ function renderParts() {
       html += `<div class="pgroup"><span>Step ${si + 1} · ${esc(s.title)}</span><span class="mono">${bs.length}</span></div><ul class="plist">`;
       for (const g of [...groupBlocks(bs, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
         const b = g[0];
-        html += row(partKeyOf(b, 'step'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+        html += row(partKeyOf(b, 'step'), glyphOf(b, colorOf(b.color).hex), `${partLabel(b)} ${esc(colorName(b.color))}`, '', g.length);
       }
       html += '</ul>';
     }
@@ -2358,21 +2504,21 @@ function renderParts() {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => b.type).values()].sort((a, c) => sizeSort(a[0], c[0]))) {
       const b = g[0], colsIn = [...new Set(g.map(x => x.color))];
-      html += row(b.type, glyph(b.width, b.depth, '#6d7784'), typeLabel(b.type), `<span class="swrow">${colsIn.map(swatch).join('')}</span> ${colsIn.length} 色`, g.length);
+      html += row(b.type, glyphOf(b, '#6d7784'), partLabel(b), `<span class="swrow">${colsIn.map(swatch).join('')}</span> ${colsIn.length} 色`, g.length);
     }
     html += '</ul>';
   } else if (v === 'color') {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => b.color).values()].sort((a, c) => c.length - a.length)) {
       const b = g[0], c = colorOf(b.color), typesIn = [...new Set(g.map(x => x.type))];
-      html += row(b.color, `<svg width="44" height="16" aria-hidden="true"><rect x=".5" y=".5" width="43" height="15" rx="3" fill="${esc(c.hex)}" stroke="rgba(0,0,0,.45)"/></svg>`, esc(c.name), typesIn.map(typeLabel).join(' · '), g.length);
+      html += row(b.color, `<svg width="44" height="16" aria-hidden="true"><rect x=".5" y=".5" width="43" height="15" rx="3" fill="${esc(c.hex)}" stroke="rgba(0,0,0,.45)"/></svg>`, esc(c.name), [...new Set(g.map(partLabel))].join(' · '), g.length);
     }
     html += '</ul>';
   } else {
     html += '<ul class="plist">';
     for (const g of [...groupBlocks(m.blocks, b => `${b.type}|${b.color}`).values()].sort((a, c) => sizeSort(a[0], c[0]) || c.length - a.length)) {
       const b = g[0];
-      html += row(partKeyOf(b, 'type-color'), glyph(b.width, b.depth, colorOf(b.color).hex), `${typeLabel(b.type)} ${esc(colorName(b.color))}`, '', g.length);
+      html += row(partKeyOf(b, 'type-color'), glyphOf(b, colorOf(b.color).hex), `${partLabel(b)} ${esc(colorName(b.color))}`, '', g.length);
     }
     html += '</ul>';
   }
@@ -2418,10 +2564,11 @@ function renderSelected() {
   const ab = state.check.above.get(b.id), be = state.check.below.get(b.id);
   el.innerHTML = `
     <div class="row"><span class="big">Block #${b.num}</span><span class="mono" style="color:var(--faint);font-size:12px">${esc(b.id)}</span></div>
-    <div class="row" style="margin-top:8px">${glyph(b.width, b.depth, c.hex)}<span>${typeLabel(b.type)} · ${esc(c.name)}</span></div>
+    <div class="row" style="margin-top:8px">${glyphOf(b, c.hex)}<span>${partLabel(b)} · ${esc(c.name)}</span></div>
     <dl>
       <dt>Position</dt><dd>X${b.x} Y${b.y} Z${b.z}</dd>
-      <dt>サイズ</dt><dd>${b.width}×${b.depth}×${b.height}（W×D×H）</dd>
+      <dt>部品</dt><dd>${esc((PARTS[b.shape] || PARTS.brick).ja)}（${esc(b.shape)}）</dd>
+      <dt>サイズ</dt><dd>${b.width}×${b.depth}・高さ ${b.height} プレート${b.height % 3 === 0 ? `（${b.height / 3} ブロック分）` : ''}</dd>
       <dt>向き</dt><dd>${b.rotation}°（占有 X${b.sx} × Z${b.sz}）</dd>
       <dt>色</dt><dd>${swatch(b.color)} ${esc(c.name)} <span style="color:var(--faint)">${esc(c.hex)}</span></dd>
       <dt>Step</dt><dd>Step ${si + 1}${si + 1 !== b.step ? `（step値 ${b.step}）` : ''} · ${esc(state.model.steps[si].title)}</dd>
@@ -2435,14 +2582,15 @@ function renderSelected() {
       <button class="btn" data-act="deselect">選択解除</button>
     </div>`;
   card.hidden = false;
-  card.innerHTML = `<button class="x" data-act="deselect" aria-label="選択解除">✕</button><div class="t">Block #${b.num}</div><div>${typeLabel(b.type)} ${esc(c.name)}</div><div class="mono" style="color:var(--muted)">X${b.x} Y${b.y} Z${b.z} · Step ${si + 1}</div>`;
+  card.innerHTML = `<button class="x" data-act="deselect" aria-label="選択解除">✕</button><div class="t">Block #${b.num}</div><div>${partLabel(b)} ${esc(c.name)}</div><div class="mono" style="color:var(--muted)">X${b.x} Y${b.y} Z${b.z} · Step ${si + 1}</div>`;
 }
 
 function renderLayerBar() {
   const m = state.model, r = $('#layer-range');
   r.max = m.layers;
   r.value = state.layer;
-  const count = state.layer ? m.blocks.filter(b => b.y <= state.layer - 1 && b.y + b.h - 1 >= state.layer - 1).length : m.blocks.length;
+  const ly = state.layer ? m.levels[state.layer - 1] : 0;
+  const count = state.layer ? m.blocks.filter(b => b.y <= ly && b.y + b.h > ly).length : m.blocks.length;
   $('#layer-val').textContent = state.layer ? `Layer ${state.layer} / ${m.layers} (${count})` : `全レイヤー (${m.layers})`;
   $('#layer-only').checked = state.layerOnly;
   $('#layer-only').disabled = !state.layer;
@@ -2520,7 +2668,8 @@ function select(id, { reveal = false, fromView = false } = {}) {
   if (id && reveal) {
     const b = state.model.byId.get(id);
     if (state.mode === 'build' && b.step > curStep().step) state.stepIdx = state.model.steps.findIndex(s => s.step === b.step);
-    if (state.layer && (b.y > state.layer - 1 || (state.layerOnly && b.y + b.h - 1 < state.layer - 1))) { state.layer = 0; state.layerOnly = false; }
+    const ly = state.layer ? state.model.levels[state.layer - 1] : 0;
+    if (state.layer && (b.y > ly || (state.layerOnly && b.y + b.h <= ly))) { state.layer = 0; state.layerOnly = false; }
   }
   if (id && (fromView || reveal)) state.tab = 'selected';
   refresh();
@@ -2602,7 +2751,7 @@ function cardHTML(key, meta, extraActs = '') {
 }
 function metaOf(raw) {
   const m = normalizeModel(raw);
-  return { name: m.name, nameEn: m.nameEn, blocks: m.blocks.length, steps: m.steps.length, size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${m.layers}` };
+  return { name: m.name, nameEn: m.nameEn, blocks: m.blocks.length, steps: m.steps.length, size: `${m.bounds.maxX - m.bounds.minX}×${m.bounds.maxZ - m.bounds.minZ}×${+(m.heightPlates / 3).toFixed(1)}` };
 }
 function renderLibrary() {
   $('#lib-repo-count').textContent = `${library.repo.length} 作品`;
@@ -2676,11 +2825,11 @@ let genCtl = null, genTimer = 0;
 // Brick budget and matching scale hints for the AI. Bigger models get more layers
 // and steps, and are told to spend the extra bricks on detail rather than bulk.
 const SIZES = {
-  s:    { bricks: 'about 30-60 bricks', layers: '6-10', steps: '6-12' },
-  m:    { bricks: 'about 60-120 bricks', layers: '8-16', steps: '10-20' },
-  l:    { bricks: 'about 120-200 bricks', layers: '12-22', steps: '15-30' },
-  xl:   { bricks: 'about 200-350 bricks', layers: '16-30', steps: '20-40' },
-  auto: { bricks: 'as many bricks as the design needs to look its best (typically 80-250; never pad it)', layers: '8-30', steps: '10-40' }
+  s:    { bricks: 'about 30-60 bricks', tall: '6-10', steps: '6-12' },
+  m:    { bricks: 'about 60-120 bricks', tall: '8-16', steps: '10-20' },
+  l:    { bricks: 'about 120-200 bricks', tall: '12-22', steps: '15-30' },
+  xl:   { bricks: 'about 200-350 bricks', tall: '16-30', steps: '20-40' },
+  auto: { bricks: 'as many bricks as the design needs to look its best (typically 80-250; never pad it)', tall: '8-30', steps: '10-40' }
 };
 const genOpts = { size: 'm', tier: 'default' };
 
@@ -2688,7 +2837,10 @@ const genOpts = { size: 'm', tier: 'default' };
 // The AI first writes a short plan, then the bricks a few steps at a time, one
 // brick per line: a reply cut off by the length limit keeps its complete lines
 // and the AI is asked to continue after them.
-const BRICK_LINE = /^\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*(?:,\s*([+-][xz]))?\s*$/i;
+const BRICK_LINE = /^\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*([a-z][a-z-]*)\s*,\s*(\d+)\s*(?:,\s*([+-][xz]))?\s*$/i;
+/** regex match -> [shape, w, d, h, x, y, z, rotation, color, step, face?] */
+const lineToBrick = mm => { const a = mm.slice(1, 11).map((v, i) => (i === 0 || i === 8) ? v.toLowerCase() : +v); if (mm[11]) a.push(mm[11].toLowerCase()); return a; };
+const STEP_I = 9;
 function parseFix(text) {
   const remove = new Set(), add = [];
   let adding = false;
@@ -2699,30 +2851,40 @@ function parseFix(text) {
     if (r) { for (const n of r[1].split(/[\s,]+/)) if (/^\d+$/.test(n)) remove.add(+n); continue; }
     if (/^ADD:?$/i.test(t)) { adding = true; continue; }
     const mm = adding && t.match(BRICK_LINE);
-    if (mm) { const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v); if (mm[10]) a.push(mm[10].toLowerCase()); add.push(a); }
+    if (mm) add.push(lineToBrick(mm));
   }
   return { remove, add };
 }
 
 function rulesText() {
-  return `COORDINATES (units = studs): X = left/right, Z = back→front (+Z is the FRONT that viewers see first), Y = height in brick layers (y = 0 stands on the ground). A brick occupies x…x+sx, z…z+sz, y…y+h.
+  const sizes = sh => PARTS[sh].sizes.map(x => x.join('x')).join(' ');
+  return `COORDINATES: X = left/right and Z = back→front in studs (+Z is the FRONT that viewers see first). Y = height in PLATES (y = 0 is the ground; a brick is 3 plates tall, a plate or tile is 1). A part occupies x…x+sx, z…z+sz, y…y+h.
 
-BRICK LINE: w,d,h,x,y,z,rotation,color,step
-- (w, d) with w ≤ d must be one of: ${BRICK_SIZES.map(s => s.join('x')).join(' ')}. h is 1 (or 2 only for a 1x2 brick that is two layers tall).
-- rotation 0: w runs along X and d along Z (sx = w, sz = d). rotation 90: d runs along X and w along Z (sx = d, sz = w).
-- color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
+PART LINE: shape,w,d,h,x,y,z,rotation,color,step
+PARTS (w x d sizes; h in plates):
+- brick: ${sizes('brick')} (h 3; h 6 = double-height brick)
+- plate: ${sizes('plate')} (h 1) — thin layers, fine height steps, wide bases
+- tile: ${sizes('tile')} (h 1) — smooth top with no studs: nothing can attach on top; use for finishing surfaces
+- slope: ${sizes('slope')} (h 3) — 45° roof slope. Only the first row along its depth (the high back edge) has studs; the rest is the sloped face, which descends in the rotation direction. Nothing attaches on the sloped face.
+- slope-inv: ${sizes('slope-inv')} (h 3) — upside-down slope for overhangs: full studs on top, only its first row rests on parts below.
+- round-brick: ${sizes('round-brick')} (h 3), round-plate: ${sizes('round-plate')} (h 1), round-tile: ${sizes('round-tile')} (h 1, no studs) — cylinders for poles, trunks, lights, wheels.
+- cone: 1x1 (h 3), 2x2 (h 6) — tapered tip; nothing attaches on top.
+- arch: ${sizes('arch')} (h 3) — open underneath; rests only on its two end studs. Good for doors, bridges, windows.
+ROTATION: 0 → the part's depth runs toward +Z (a slope's face looks to the front); 90 → +X; 180 → -Z; 270 → -X. Footprint: rotation 0/180: sx = w, sz = d; 90/270: sx = d, sz = w.
+color is one of: ${Object.keys(STANDARD_COLORS).join(', ')}.
 
 PHYSICS RULES (checked automatically):
-1. No two bricks may overlap in space.
-2. Two bricks are CONNECTED only when one sits directly on top of the other (lower.y + lower.h == upper.y) AND their footprints overlap by at least one stud. Side by side is NOT connected.
-3. Every brick needs a brick directly below it (or directly above it) that overlaps its footprint, so that everything connects down to y = 0. Overhangs are fine when part of the brick rests on something.
-4. Use running bond: stagger joints between layers so each layer ties the layer below together.
-5. Build bottom-up: a brick must attach to the ground or to bricks placed in earlier steps.`;
+1. No two parts may overlap in space.
+2. Two parts are CONNECTED only when the upper one sits exactly on the lower one (lower.y + lower.h == upper.y) AND a stud of the lower part meets the underside of the upper part (see which cells have studs above). Side by side is NOT connected.
+3. Every part must connect through such connections down to a part at y = 0. Overhangs are fine when part of it rests on studs.
+4. Stagger joints between layers so upper parts tie the parts below together.
+5. Build bottom-up: a part must attach to the ground or to parts placed in earlier steps.
+TIPS: slopes for roofs and tapering shapes, plates to fine-tune heights, tiles for smooth tops, round parts and cones for poles, trees and spires, arches for openings.`;
 }
 function buildPlanPrompt(request) {
   const size = SIZES[genOpts.size];
   return `You design models made of LEGO-style bricks for a 3D building-instructions viewer. Design this: 「${request}」
-Use ${size.bricks}, about ${size.layers} layers tall, in ${size.steps} build steps. Make it clearly recognizable from the front, with good colors and proportions; spend bricks on recognizable detail and silhouette, not on hidden solid fill.
+Use ${size.bricks} (parts of any kind count), about ${size.tall} bricks tall (${size.tall.split('-').map(n => n * 3).join('-')} plates), in ${size.steps} build steps. Make it clearly recognizable from the front, with good colors and proportions; spend bricks on recognizable detail and silhouette, not on hidden solid fill.
 
 ${rulesText()}
 
@@ -2731,10 +2893,10 @@ OUTPUT exactly this line format, nothing else:
 NAME: 日本語の作品名
 NAME_EN: English name
 DESC: 日本語で1文の説明
-SIZE: footprint WxD studs centered around x=0..W, z=0..D; H layers; main colors
-STEP 1 | layers 0-1 | 24 | 短い日本語の見出し | 日本語の手順説明（使うブロックの色と大きさを書く）
-STEP 2 | layers 2-3 | 18 | … | …
-(one line per step: step number | layer range it builds | approximate brick count | title | instruction; steps go bottom-up)
+SIZE: footprint WxD studs (x=0..W, z=0..D); height in plates; main colors; which special parts you will use
+STEP 1 | y 0-5 | 24 | 短い日本語の見出し | 日本語の手順説明（使う部品の種類・色・大きさを書く）
+STEP 2 | y 6-11 | 18 | … | …
+(one line per step: step number | height range in plates it builds | approximate part count | title | instruction; steps go bottom-up)
 END`;
 }
 function buildChunkPrompt(request, planText, placed, chunk) {
@@ -2749,8 +2911,8 @@ ${rulesText()}
 BRICKS ALREADY PLACED (steps before ${first}), one per line:
 ${placed.length ? placed.map(a => a.join(',')).join('\n') : '(none yet — this is the first step)'}
 
-Now output ONLY the bricks for STEP ${first}${last !== first ? `–${last}` : ''} (${chunk.map(s => `step ${s.step}: layers ${s.from}-${s.to}, ~${s.est} bricks, ${s.title}`).join('; ')}), about ${est} bricks in total. Every new brick must rest on a brick already placed or on another new brick from a lower layer (or on the ground at y=0), and must not overlap any brick. Use the step number from the plan as the last value.
-OUTPUT: one brick per line (w,d,h,x,y,z,rotation,color,step), nothing else, then END.`;
+Now output ONLY the bricks for STEP ${first}${last !== first ? `–${last}` : ''} (${chunk.map(s => `step ${s.step}: y ${s.from}-${s.to} (plates), ~${s.est} parts, ${s.title}`).join('; ')}), about ${est} bricks in total. Every new brick must rest on a brick already placed or on another new brick from a lower layer (or on the ground at y=0), and must not overlap any brick. Use the step number from the plan as the last value.
+OUTPUT: one brick per line (shape,w,d,h,x,y,z,rotation,color,step), nothing else, then END.`;
 }
 
 /** Ask Claude and keep asking it to continue until the reply contains END.
@@ -2818,7 +2980,7 @@ function parsePlan(text) {
     if ((mm = t.match(/^NAME:\s*(.*)$/i))) out.name = mm[1].trim();
     else if ((mm = t.match(/^NAME_EN:\s*(.*)$/i))) out.nameEn = mm[1].trim();
     else if ((mm = t.match(/^DESC:\s*(.*)$/i))) out.description = mm[1].trim();
-    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*(?:layers?\s*)?(\d+)\s*(?:[-–~]\s*(\d+))?\s*\|\s*~?\s*(\d+)[^|]*\|\s*([^|]*)\|?\s*(.*)$/i)))
+    else if ((mm = t.match(/^STEP\s+(\d+)\s*\|\s*(?:layers?|plates?|y)?\s*(\d+)\s*(?:[-–~]\s*(\d+))?\s*\|\s*~?\s*(\d+)[^|]*\|\s*([^|]*)\|?\s*(.*)$/i)))
       out.steps.push({ step: +mm[1], from: +mm[2], to: mm[3] !== undefined ? +mm[3] : +mm[2], est: Math.max(1, +mm[4]), title: mm[5].trim(), description: mm[6].trim() });
   }
   out.steps.sort((a, b) => a.step - b.step);
@@ -2834,8 +2996,7 @@ function chunkSteps(steps) {
   if (cur.length) chunks.push(cur);
   return chunks;
 }
-const brickLines = t => t.split('\n').map(l => l.match(BRICK_LINE)).filter(Boolean)
-  .map(mm => { const a = mm.slice(1, 10).map((v, i) => i === 7 ? v.toLowerCase() : +v); if (mm[10]) a.push(mm[10].toLowerCase()); return a; });
+const brickLines = t => t.split('\n').map(l => l.match(BRICK_LINE)).filter(Boolean).map(lineToBrick);
 
 /** One sampling call with a single retry on an empty answer (a long silent
  *  think can end with no text); the retry uses the quick tier. */
@@ -2885,7 +3046,7 @@ async function generate() {
       const text = await askWithRetry([{ role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) }], opts,
         t => line.meta(`${brickLines(t).length} ブロック`));
       const allowed = new Set(chunk.map(s => s.step));
-      let fresh = brickLines(text).map(br => { if (!allowed.has(br[8])) br[8] = br[8] < a ? a : b; return br; });
+      let fresh = brickLines(text).map(br => { if (!allowed.has(br[STEP_I])) br[STEP_I] = br[STEP_I] < a ? a : b; return br; });
       // local check of this part only
       const partIssues = () => {
         const m = normalizeModel(fromCompact({ ...design, blocks: [...design.blocks, ...fresh] }, extra));
@@ -2903,10 +3064,10 @@ async function generate() {
           const fixText = await askWithRetry([
             { role: 'user', content: buildChunkPrompt(request, cleanPlan, design.blocks, chunk) },
             { role: 'assistant', content: fresh.map(x => x.join(',')).join('\n') + '\nEND' },
-            { role: 'user', content: `The checker found problems in your new bricks (#N = the N-th line of your answer):\n${issues.slice(0, 30).join('\n')}\n\nReply ONLY with the changes, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }
+            { role: 'user', content: `The checker found problems in your new bricks (#N = the N-th line of your answer):\n${issues.slice(0, 30).join('\n')}\n\nReply ONLY with the changes, then END:\nREMOVE n,n,n\nADD\nshape,w,d,h,x,y,z,rotation,color,step\nEND` }
           ], opts, () => {});
           const fx = parseFix(fixText);
-          fresh = [...fresh.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!allowed.has(br[8])) br[8] = b; return br; })];
+          fresh = [...fresh.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!allowed.has(br[STEP_I])) br[STEP_I] = b; return br; })];
           issues = partIssues();
         } catch (e) { if (e && e.code === 'cancelled') throw e; }
       }
@@ -2925,10 +3086,10 @@ async function generate() {
       const issues = describeIssues(m, c, 30).map(t => t.replace(/block_0*(\d+)/g, '#$1'));
       chk.set(`全体の構造チェック: ${issues.length} 件の問題を直してもらっています…`);
       try {
-        const fixText = await askWithRetry([{ role: 'user', content: `This LEGO-style model of 「${request}」 has structural problems.\n\n${rulesText()}\n\nALL BRICKS (#N = N-th line):\n${design.blocks.map((x, i) => `#${i + 1} ${x.join(',')}`).join('\n')}\n\nPROBLEMS:\n${issues.join('\n')}\n\nA group that is "not connected" needs a brick above or below that spans the joint to the main model. Reply ONLY with the changes that fix every problem, then END:\nREMOVE n,n,n\nADD\nw,d,h,x,y,z,rotation,color,step\nEND` }], opts, () => {});
+        const fixText = await askWithRetry([{ role: 'user', content: `This LEGO-style model of 「${request}」 has structural problems.\n\n${rulesText()}\n\nALL BRICKS (#N = N-th line):\n${design.blocks.map((x, i) => `#${i + 1} ${x.join(',')}`).join('\n')}\n\nPROBLEMS:\n${issues.join('\n')}\n\nA group that is "not connected" needs a brick above or below that spans the joint to the main model. Reply ONLY with the changes that fix every problem, then END:\nREMOVE n,n,n\nADD\nshape,w,d,h,x,y,z,rotation,color,step\nEND` }], opts, () => {});
         const fx = parseFix(fixText);
         const lastStep = design.steps.length ? design.steps[design.steps.length - 1].step : 1;
-        design.blocks = [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!design.steps.some(st => st.step === br[8])) br[8] = lastStep; return br; })];
+        design.blocks = [...design.blocks.filter((_, i) => !fx.remove.has(i + 1)), ...fx.add.map(br => { if (!design.steps.some(st => st.step === br[STEP_I])) br[STEP_I] = lastStep; return br; })];
         raw = fromCompact(design, extra); m = normalizeModel(raw); c = validateModel(m);
       } catch (e) { if (e && e.code === 'cancelled') throw e; }
     }
@@ -3045,7 +3206,7 @@ canvas.addEventListener('pointermove', e => {
     canvas.style.cursor = id ? 'pointer' : '';
     if (id) {
       const b = state.model.byId.get(id), rect = $('#viewport').getBoundingClientRect();
-      tip.innerHTML = `<b>#${b.num}</b> ${typeLabel(b.type)} ${esc(colorName(b.color))} · Step ${state.model.steps.findIndex(s => s.step === b.step) + 1}`;
+      tip.innerHTML = `<b>#${b.num}</b> ${partLabel(b)} ${esc(colorName(b.color))} · Step ${state.model.steps.findIndex(s => s.step === b.step) + 1}`;
       tip.style.left = (e.clientX - rect.left) + 'px';
       tip.style.top = (e.clientY - rect.top) + 'px';
       tip.hidden = false;

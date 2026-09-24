@@ -53,6 +53,19 @@
       "steps": 13,
       "layers": 14,
       "size": "10×4×14"
+    },
+    {
+      "id": "tokyo-tower",
+      "file": "models/tokyo-tower.json",
+      "name": "東京タワー",
+      "nameEn": "Tokyo Tower",
+      "description": "4本の脚が細くなっていく赤白の電波塔。プレート・タイル・スロープ・アーチ・丸ブロック・コーンを使った作例。",
+      "author": "Claude",
+      "createdAt": "2026-09-24",
+      "blocks": 71,
+      "steps": 23,
+      "layers": 25,
+      "size": "16×16×21.7"
     }
   ]
 }

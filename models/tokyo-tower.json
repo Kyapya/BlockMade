@@ -1,0 +1,234 @@
+{
+  "format": "blockmade.model",
+  "version": 2,
+  "units": {
+    "xz": "stud",
+    "y": "plate (brick = 3)"
+  },
+  "name": "東京タワー",
+  "nameEn": "Tokyo Tower",
+  "description": "4本の脚が細くなっていく赤白の電波塔。プレート・タイル・スロープ・アーチ・丸ブロック・コーンを使った作例。",
+  "author": "Claude",
+  "createdAt": "2026-09-24",
+  "colors": {
+    "green": {
+      "name": "Green",
+      "hex": "#2e8b50"
+    },
+    "light-gray": {
+      "name": "Light Gray",
+      "hex": "#a8afb7"
+    },
+    "white": {
+      "name": "White",
+      "hex": "#f0efe9"
+    },
+    "red": {
+      "name": "Red",
+      "hex": "#b23a30"
+    },
+    "orange": {
+      "name": "Orange",
+      "hex": "#e0772b"
+    },
+    "trans-blue": {
+      "name": "Trans Blue",
+      "hex": "#7cc3f0",
+      "opacity": 0.55
+    },
+    "dark-gray": {
+      "name": "Dark Gray",
+      "hex": "#59616b"
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "title": "土台のプレート",
+      "description": "緑の8×8プレートを4枚並べて、16×16の土台をつくります。"
+    },
+    {
+      "step": 2,
+      "title": "中央のプレート",
+      "description": "明るいグレーの8×8プレートを中央に重ね、4枚の土台をまとめて固定します。"
+    },
+    {
+      "step": 3,
+      "title": "正面ゲート",
+      "description": "正面に白い1×1を2本立て、その上に1×6アーチを渡し、白い1×6タイルで仕上げます。"
+    },
+    {
+      "step": 4,
+      "title": "脚 1段目",
+      "description": "オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。四隅の土台プレートの上から始めます。"
+    },
+    {
+      "step": 5,
+      "title": "脚 2段目",
+      "description": "白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"
+    },
+    {
+      "step": 6,
+      "title": "脚 3段目",
+      "description": "オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"
+    },
+    {
+      "step": 7,
+      "title": "脚 4段目",
+      "description": "白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"
+    },
+    {
+      "step": 8,
+      "title": "脚 5段目",
+      "description": "オレンジの2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"
+    },
+    {
+      "step": 9,
+      "title": "脚 6段目",
+      "description": "白の2×2を4本の脚に1個ずつ、前の段から1スタッド内側へずらして積みます。"
+    },
+    {
+      "step": 10,
+      "title": "展望台の床",
+      "description": "白い8×8プレートを4本の脚の上に載せて、展望台の床にします。"
+    },
+    {
+      "step": 11,
+      "title": "展望台の窓",
+      "description": "透明ブルーの1×8を前後、1×6を左右に置いて、窓の輪をつくります。"
+    },
+    {
+      "step": 12,
+      "title": "展望台の屋根",
+      "description": "明るいグレーの8×8プレートで窓の輪にふたをします。"
+    },
+    {
+      "step": 13,
+      "title": "屋根のスロープとタイル",
+      "description": "4×2スロープを四方に外向きに置き、四隅の空いたところを2×2タイルで平らに仕上げます。"
+    },
+    {
+      "step": 14,
+      "title": "上部の塔 1段目",
+      "description": "オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 15,
+      "title": "上部の塔 2段目",
+      "description": "白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 16,
+      "title": "上部の塔 3段目",
+      "description": "オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 17,
+      "title": "上部の塔 4段目",
+      "description": "白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 18,
+      "title": "上部の塔 5段目",
+      "description": "オレンジの2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 19,
+      "title": "上部の塔 6段目",
+      "description": "白の2×4を2本並べて4×4の段をつくります。段ごとに向きを90°変えて、継ぎ目をずらします。"
+    },
+    {
+      "step": 20,
+      "title": "特別展望台の床",
+      "description": "白い6×6プレートを塔の上に載せます。"
+    },
+    {
+      "step": 21,
+      "title": "特別展望台の窓",
+      "description": "透明ブルーの1×6を前後、1×4を左右に置いて、小さな窓の輪をつくります。"
+    },
+    {
+      "step": 22,
+      "title": "特別展望台の屋根",
+      "description": "明るいグレーの6×6プレートでふたをします。"
+    },
+    {
+      "step": 23,
+      "title": "アンテナ",
+      "description": "2×2丸ブロックをオレンジ・白の順に2個、1×1丸ブロックを3個重ね、最後に白いコーンを載せて完成です。"
+    }
+  ],
+  "blocks": [
+    {"id":"block_001","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":0,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_002","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":8,"y":0,"z":0,"rotation":0,"color":"green","step":1},
+    {"id":"block_003","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":0,"y":0,"z":8,"rotation":0,"color":"green","step":1},
+    {"id":"block_004","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":8,"y":0,"z":8,"rotation":0,"color":"green","step":1},
+    {"id":"block_005","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":1,"z":4,"rotation":0,"color":"light-gray","step":2},
+    {"id":"block_006","type":"1x1","width":1,"depth":1,"height":3,"x":5,"y":1,"z":12,"rotation":0,"color":"white","step":3},
+    {"id":"block_007","type":"1x1","width":1,"depth":1,"height":3,"x":10,"y":1,"z":12,"rotation":0,"color":"white","step":3},
+    {"id":"block_008","shape":"arch","type":"arch-1x6","width":1,"depth":6,"height":3,"x":5,"y":4,"z":12,"rotation":90,"color":"red","step":3},
+    {"id":"block_009","shape":"tile","type":"tile-1x6","width":1,"depth":6,"height":1,"x":5,"y":7,"z":12,"rotation":90,"color":"white","step":3},
+    {"id":"block_010","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":1,"z":0,"rotation":0,"color":"orange","step":4},
+    {"id":"block_011","type":"2x2","width":2,"depth":2,"height":3,"x":14,"y":1,"z":0,"rotation":0,"color":"orange","step":4},
+    {"id":"block_012","type":"2x2","width":2,"depth":2,"height":3,"x":0,"y":1,"z":14,"rotation":0,"color":"orange","step":4},
+    {"id":"block_013","type":"2x2","width":2,"depth":2,"height":3,"x":14,"y":1,"z":14,"rotation":0,"color":"orange","step":4},
+    {"id":"block_014","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":4,"z":1,"rotation":0,"color":"white","step":5},
+    {"id":"block_015","type":"2x2","width":2,"depth":2,"height":3,"x":13,"y":4,"z":1,"rotation":0,"color":"white","step":5},
+    {"id":"block_016","type":"2x2","width":2,"depth":2,"height":3,"x":1,"y":4,"z":13,"rotation":0,"color":"white","step":5},
+    {"id":"block_017","type":"2x2","width":2,"depth":2,"height":3,"x":13,"y":4,"z":13,"rotation":0,"color":"white","step":5},
+    {"id":"block_018","type":"2x2","width":2,"depth":2,"height":3,"x":2,"y":7,"z":2,"rotation":0,"color":"orange","step":6},
+    {"id":"block_019","type":"2x2","width":2,"depth":2,"height":3,"x":12,"y":7,"z":2,"rotation":0,"color":"orange","step":6},
+    {"id":"block_020","type":"2x2","width":2,"depth":2,"height":3,"x":2,"y":7,"z":12,"rotation":0,"color":"orange","step":6},
+    {"id":"block_021","type":"2x2","width":2,"depth":2,"height":3,"x":12,"y":7,"z":12,"rotation":0,"color":"orange","step":6},
+    {"id":"block_022","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":10,"z":3,"rotation":0,"color":"white","step":7},
+    {"id":"block_023","type":"2x2","width":2,"depth":2,"height":3,"x":11,"y":10,"z":3,"rotation":0,"color":"white","step":7},
+    {"id":"block_024","type":"2x2","width":2,"depth":2,"height":3,"x":3,"y":10,"z":11,"rotation":0,"color":"white","step":7},
+    {"id":"block_025","type":"2x2","width":2,"depth":2,"height":3,"x":11,"y":10,"z":11,"rotation":0,"color":"white","step":7},
+    {"id":"block_026","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":13,"z":4,"rotation":0,"color":"orange","step":8},
+    {"id":"block_027","type":"2x2","width":2,"depth":2,"height":3,"x":10,"y":13,"z":4,"rotation":0,"color":"orange","step":8},
+    {"id":"block_028","type":"2x2","width":2,"depth":2,"height":3,"x":4,"y":13,"z":10,"rotation":0,"color":"orange","step":8},
+    {"id":"block_029","type":"2x2","width":2,"depth":2,"height":3,"x":10,"y":13,"z":10,"rotation":0,"color":"orange","step":8},
+    {"id":"block_030","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":16,"z":5,"rotation":0,"color":"white","step":9},
+    {"id":"block_031","type":"2x2","width":2,"depth":2,"height":3,"x":9,"y":16,"z":5,"rotation":0,"color":"white","step":9},
+    {"id":"block_032","type":"2x2","width":2,"depth":2,"height":3,"x":5,"y":16,"z":9,"rotation":0,"color":"white","step":9},
+    {"id":"block_033","type":"2x2","width":2,"depth":2,"height":3,"x":9,"y":16,"z":9,"rotation":0,"color":"white","step":9},
+    {"id":"block_034","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":19,"z":4,"rotation":0,"color":"white","step":10},
+    {"id":"block_035","type":"1x8","width":1,"depth":8,"height":3,"x":4,"y":20,"z":4,"rotation":90,"color":"trans-blue","step":11},
+    {"id":"block_036","type":"1x8","width":1,"depth":8,"height":3,"x":4,"y":20,"z":11,"rotation":90,"color":"trans-blue","step":11},
+    {"id":"block_037","type":"1x6","width":1,"depth":6,"height":3,"x":4,"y":20,"z":5,"rotation":0,"color":"trans-blue","step":11},
+    {"id":"block_038","type":"1x6","width":1,"depth":6,"height":3,"x":11,"y":20,"z":5,"rotation":0,"color":"trans-blue","step":11},
+    {"id":"block_039","shape":"plate","type":"plate-8x8","width":8,"depth":8,"height":1,"x":4,"y":23,"z":4,"rotation":0,"color":"light-gray","step":12},
+    {"id":"block_040","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":6,"y":24,"z":10,"rotation":0,"color":"dark-gray","step":13},
+    {"id":"block_041","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":6,"y":24,"z":4,"rotation":180,"color":"dark-gray","step":13},
+    {"id":"block_042","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":4,"y":24,"z":6,"rotation":270,"color":"dark-gray","step":13},
+    {"id":"block_043","shape":"slope","type":"slope-4x2","width":4,"depth":2,"height":3,"x":10,"y":24,"z":6,"rotation":90,"color":"dark-gray","step":13},
+    {"id":"block_044","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":4,"y":24,"z":4,"rotation":0,"color":"light-gray","step":13},
+    {"id":"block_045","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":10,"y":24,"z":4,"rotation":0,"color":"light-gray","step":13},
+    {"id":"block_046","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":4,"y":24,"z":10,"rotation":0,"color":"light-gray","step":13},
+    {"id":"block_047","shape":"tile","type":"tile-2x2","width":2,"depth":2,"height":1,"x":10,"y":24,"z":10,"rotation":0,"color":"light-gray","step":13},
+    {"id":"block_048","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":24,"z":6,"rotation":0,"color":"orange","step":14},
+    {"id":"block_049","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":24,"z":6,"rotation":0,"color":"orange","step":14},
+    {"id":"block_050","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":27,"z":6,"rotation":90,"color":"white","step":15},
+    {"id":"block_051","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":27,"z":8,"rotation":90,"color":"white","step":15},
+    {"id":"block_052","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":30,"z":6,"rotation":0,"color":"orange","step":16},
+    {"id":"block_053","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":30,"z":6,"rotation":0,"color":"orange","step":16},
+    {"id":"block_054","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":33,"z":6,"rotation":90,"color":"white","step":17},
+    {"id":"block_055","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":33,"z":8,"rotation":90,"color":"white","step":17},
+    {"id":"block_056","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":36,"z":6,"rotation":0,"color":"orange","step":18},
+    {"id":"block_057","type":"2x4","width":2,"depth":4,"height":3,"x":8,"y":36,"z":6,"rotation":0,"color":"orange","step":18},
+    {"id":"block_058","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":39,"z":6,"rotation":90,"color":"white","step":19},
+    {"id":"block_059","type":"2x4","width":2,"depth":4,"height":3,"x":6,"y":39,"z":8,"rotation":90,"color":"white","step":19},
+    {"id":"block_060","shape":"plate","type":"plate-6x6","width":6,"depth":6,"height":1,"x":5,"y":42,"z":5,"rotation":0,"color":"white","step":20},
+    {"id":"block_061","type":"1x6","width":1,"depth":6,"height":3,"x":5,"y":43,"z":5,"rotation":90,"color":"trans-blue","step":21},
+    {"id":"block_062","type":"1x6","width":1,"depth":6,"height":3,"x":5,"y":43,"z":10,"rotation":90,"color":"trans-blue","step":21},
+    {"id":"block_063","type":"1x4","width":1,"depth":4,"height":3,"x":5,"y":43,"z":6,"rotation":0,"color":"trans-blue","step":21},
+    {"id":"block_064","type":"1x4","width":1,"depth":4,"height":3,"x":10,"y":43,"z":6,"rotation":0,"color":"trans-blue","step":21},
+    {"id":"block_065","shape":"plate","type":"plate-6x6","width":6,"depth":6,"height":1,"x":5,"y":46,"z":5,"rotation":0,"color":"light-gray","step":22},
+    {"id":"block_066","shape":"round-brick","type":"round-brick-2x2","width":2,"depth":2,"height":3,"x":7,"y":47,"z":7,"rotation":0,"color":"orange","step":23},
+    {"id":"block_067","shape":"round-brick","type":"round-brick-2x2","width":2,"depth":2,"height":3,"x":7,"y":50,"z":7,"rotation":0,"color":"white","step":23},
+    {"id":"block_068","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":53,"z":7,"rotation":0,"color":"orange","step":23},
+    {"id":"block_069","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":56,"z":7,"rotation":0,"color":"white","step":23},
+    {"id":"block_070","shape":"round-brick","type":"round-brick-1x1","width":1,"depth":1,"height":3,"x":7,"y":59,"z":7,"rotation":0,"color":"orange","step":23},
+    {"id":"block_071","shape":"cone","type":"cone-1x1","width":1,"depth":1,"height":3,"x":7,"y":62,"z":7,"rotation":0,"color":"white","step":23}
+  ]
+}
