@@ -13,6 +13,9 @@ LEGO風のブロックで設計した作品を3Dで確認できるビューア�
 | スターファイター (`star-fighter.json`) | 31 | 15 |
 | ブロックロボ (`block-robot.json`) | 39 | 13 |
 | 東京タワー (`tokyo-tower.json`) | 71 | 23 |
+| 東京スカイツリー (`tokyo-skytree.json`) | 11010 | 29 |
+
+東京スカイツリーは 1スタッド＝2m の縮尺で、高さ634mを約793プレート分で再現した大型作品です。`tools/gen-tokyo-skytree.mjs` が形状（足もとの正三角形が320mで円になる断面、X形トラスと水平リング、心柱、天望デッキ、らせん状の天望回廊、ゲイン塔）から部品を割り付けて生成します。形を調整したら `node tools/gen-tokyo-skytree.mjs` を実行してから、下の2つのコマンドを実行します。
 
 ### 作品の追加方法
 
@@ -43,7 +46,10 @@ node tools/build.mjs      # index.html と dist/artifact.html を生成
 | `models/*.json` | 作品データです |
 | `tools/validate.mjs` | 全作品を検証し、`models/index.json` を再生成します |
 | `tools/build.mjs` | Three.js・共通コード・全作品を埋め込み、単一ファイルのページを生成します |
+| `tools/gen-tokyo-skytree.mjs` | 東京スカイツリー（`models/tokyo-skytree.json`）を生成します |
 | `vendor/` | Three.js r147 と OrbitControls（MIT License）です |
+
+1200個以上の部品をもつ作品は、ビューアが自動で「まとめ描画」に切り替えます。同じ Step・同じ高さ・同じ質感の部品を1つのメッシュにまとめ、ほかの部品に隠れるスタッドは描きません。1万個を超える作品でも、組み立てモード・レイヤー表示・分解表示・部品のクリック選択はそのまま使えます。
 
 公開するページには、Three.js（`vendor/`、MIT）を含めて必要なスクリプトをすべて埋め込み、外部からスクリプトを一切読み込まないようにしています。Artifact のビューアでは、外部スクリプトの読み込みが失敗することがあるためです。
 

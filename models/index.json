@@ -66,6 +66,19 @@
       "steps": 23,
       "layers": 25,
       "size": "16×16×21.7"
+    },
+    {
+      "id": "tokyo-skytree",
+      "file": "models/tokyo-skytree.json",
+      "name": "東京スカイツリー",
+      "nameEn": "Tokyo Skytree",
+      "description": "高さ634mの自立式電波塔を1スタッド＝2mで再現。足もとの一辺68mの正三角形が高さ320mで円に変わる断面、X形トラスと水平リングの外殻、すき間から見える心柱とエレベーターシャフト、350mの天望デッキ、らせん状のガラス回廊をもつ450mの天望回廊、頂部のゲイン塔まで。足もとにはタワーヤードと北十間川。",
+      "author": "Claude",
+      "createdAt": "2026-09-24",
+      "blocks": 11010,
+      "steps": 29,
+      "layers": 299,
+      "size": "64×72×265.3"
     }
   ]
 }

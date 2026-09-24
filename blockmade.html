@@ -478,7 +478,9 @@ const curStep = () => state.model.steps[state.stepIdx];
    3. 3D SCENE (Three.js)
    ====================================================================== */
 const Scene = (() => {
-  const H = 0.4, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, EXPLODE = 1.25, DROP = 2.6;   // H = one plate (brick = 3 plates)
+  const H = 0.4, GAP = 0.03, STUD_R = 0.3, STUD_H = 0.18, DROP = 2.6;   // H = one plate (brick = 3 plates)
+  let EXPLODE = 1.25;                  // gap per layer in the exploded view (smaller for very tall models)
+  const BATCH_MIN = 1200;              // models with at least this many parts are drawn in merged batches
   const ACCENT = new THREE.Color('#f2b544'), SELECT = new THREE.Color('#5fd6e8'), WHITE = new THREE.Color('#ffffff'), BLACK = new THREE.Color('#000000');
   const viewEl = $('#viewport'), canvas = $('#gl');
 
@@ -488,10 +490,13 @@ const Scene = (() => {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
+  const SUN_DIR = new THREE.Vector3(16, 30, 20).normalize();
+  let sunLight = null;
   function addLights(scene, shadows) {
     scene.add(new THREE.HemisphereLight(0xe4ecff, 0x20242b, 0.72));
     const sun = new THREE.DirectionalLight(0xffffff, 0.85);
     sun.position.set(16, 30, 20);
+    if (shadows) sunLight = sun;
     if (shadows) {
       sun.castShadow = true;
       sun.shadow.mapSize.set(2048, 2048);
@@ -534,6 +539,26 @@ const Scene = (() => {
 
   const root = new THREE.Group();
   scene.add(root);
+  if (sunLight) scene.add(sunLight.target);
+  /** Fit the shadow camera, sun, camera range and grid to the model's size. */
+  function fitScene(m) {
+    const w = m.bounds.maxX - m.bounds.minX, d = m.bounds.maxZ - m.bounds.minZ, h = m.heightPlates * H;
+    const radius = Math.max(26, Math.hypot(w, d, h) / 2 + 2);
+    const cy = Math.max(radius > 26 ? h / 2 : 0, 0);
+    sunLight.target.position.set(0, cy, 0);
+    sunLight.position.copy(SUN_DIR).multiplyScalar(Math.max(38, radius * 1.6)).add(sunLight.target.position);
+    Object.assign(sunLight.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius, near: 1, far: Math.max(110, radius * 3.4) });
+    sunLight.shadow.mapSize.set(radius > 60 ? 4096 : 2048, radius > 60 ? 4096 : 2048);
+    if (sunLight.shadow.map) { sunLight.shadow.map.dispose(); sunLight.shadow.map = null; }
+    sunLight.shadow.camera.updateProjectionMatrix();
+    controls.maxDistance = Math.max(240, radius * 4.5);
+    camera.far = Math.max(600, radius * 10);
+    camera.updateProjectionMatrix();
+    const gs = Math.max(64, Math.ceil(Math.max(w, d) / 8) * 8 + 16);
+    grid.geometry.dispose();
+    grid.geometry = new THREE.GridHelper(gs, gs, 0x46505e, 0x262d37).geometry;
+    EXPLODE = Math.min(1.25, 90 / Math.max(1, m.layers));
+  }
 
   const geoCache = new Map();
   const studGeo = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 20);
@@ -642,8 +667,113 @@ const Scene = (() => {
   setInterval(() => liveClocks.forEach(f => f()), 30000);
   const FACE_INDEX = { '+x': 0, '-x': 1, '+y': 2, '-y': 3, '+z': 4, '-z': 5 };
 
-  /** Build a Three.js group for a normalized model (used by the main view and thumbnails). */
-  function makeModelGroup(m, { shadows = true, live = true } = {}) {
+  /* ---- batched drawing for large models ----------------------------------
+     Parts that share a step, a bottom height, a height and a material class are
+     merged into one mesh ("chunk"), with per-vertex colours. Only studs that are
+     not covered by another part are drawn; studs covered by a part of a later
+     step are kept in their own mesh and shown while that part is hidden. */
+  const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _q = new THREE.Quaternion(), _one = new THREE.Vector3(1, 1, 1);
+  const _m4 = new THREE.Matrix4(), _m3 = new THREE.Matrix3(), _col = new THREE.Color(), Y_AXIS = new THREE.Vector3(0, 1, 0);
+  const studLite = new THREE.CylinderGeometry(STUD_R, STUD_R, STUD_H, 12);
+  const newAcc = () => ({ pos: [], nor: [], col: [], idx: [], n: 0 });
+  function appendGeo(acc, geo, mat4, color) {
+    const p = geo.attributes.position, nr = geo.attributes.normal, base = acc.n;
+    _m3.getNormalMatrix(mat4);
+    for (let i = 0; i < p.count; i++) {
+      _v.fromBufferAttribute(p, i).applyMatrix4(mat4); acc.pos.push(_v.x, _v.y, _v.z);
+      _n.fromBufferAttribute(nr, i).applyMatrix3(_m3).normalize(); acc.nor.push(_n.x, _n.y, _n.z);
+      acc.col.push(color.r, color.g, color.b);
+    }
+    if (geo.index) { const ix = geo.index.array; for (let i = 0; i < ix.length; i++) acc.idx.push(base + ix[i]); }
+    else for (let i = 0; i < p.count; i++) acc.idx.push(base + i);
+    acc.n += p.count;
+  }
+  function accGeo(acc) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(acc.nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(acc.col, 3));
+    g.setIndex(acc.n > 65535 ? new THREE.Uint32BufferAttribute(acc.idx, 1) : new THREE.Uint16BufferAttribute(acc.idx, 1));
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+  function blockMatrix(b, center, rotate) {
+    _v.set(b.x + b.sx / 2 - center.x, b.y * H + b.h * H / 2, b.z + b.sz / 2 - center.z);
+    _q.setFromAxisAngle(Y_AXIS, rotate ? b.rotation * Math.PI / 180 : 0);
+    return _m4.compose(_v, _q, _one);
+  }
+  /** Merged body geometry for a list of blocks (used for chunks and highlight overlays). */
+  function mergedBodies(blocks, center, m) {
+    const acc = newAcc(), tri = [];
+    for (const b of blocks) {
+      const g = bodyGeo(b);
+      tri.push(acc.idx.length / 3);
+      appendGeo(acc, g.body, blockMatrix(b, center, g.rotate), _col.set(m.colors[b.color].hex));
+    }
+    return { geo: accGeo(acc), tri };
+  }
+  function makeBatchedGroup(m, { shadows = true } = {}) {
+    const group = new THREE.Group(), recs = [];
+    const center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
+    const occ = new Map();
+    for (const b of m.blocks) for (let x = b.x; x < b.x + b.sx; x++) for (let z = b.z; z < b.z + b.sz; z++) for (let y = b.y; y < b.y + b.h; y++) occ.set(`${x},${z},${y}`, b);
+    const matKey = c => c.opacity < 1 ? 't' + c.hex + c.opacity : `o${c.metalness}|${c.roughness}`;
+    const keyOf = b => `${b.step}|${b.y}|${b.h}|${matKey(m.colors[b.color])}`;
+    const chunks = new Map();
+    for (const b of m.blocks) { const k = keyOf(b); if (!chunks.has(k)) chunks.set(k, { key: k, step: b.step, y: b.y, h: b.h, level: b.level, blocks: [] }); chunks.get(k).blocks.push(b); }
+    for (const ch of chunks.values()) {
+      const c = m.colors[ch.blocks[0].color];
+      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: c.roughness, metalness: c.metalness, transparent: c.opacity < 1, opacity: c.opacity, depthWrite: c.opacity >= 1 });
+      const { geo, tri } = mergedBodies(ch.blocks, center, m);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = mesh.receiveShadow = shadows;
+      mesh.userData.chunk = ch;
+      const lines = [];
+      const studAcc = new Map();
+      const box = new THREE.Box3();
+      for (const b of ch.blocks) {
+        const g = bodyGeo(b), m4 = blockMatrix(b, center, g.rotate);
+        const ep = g.edges.attributes.position;
+        for (let i = 0; i < ep.count; i++) { _v.fromBufferAttribute(ep, i).applyMatrix4(m4); lines.push(_v.x, _v.y, _v.z); }
+        _col.set(m.colors[b.color].hex);
+        for (const [cx, cz] of b.topCells) {
+          const cov = occ.get(`${cx},${cz},${b.y + b.h}`);
+          const ck = cov ? keyOf(cov) : '';
+          if (cov && cov.step <= b.step) continue;             // hidden whenever this part is shown
+          if (!studAcc.has(ck)) studAcc.set(ck, newAcc());
+          _v.set(cx + 0.5 - center.x, b.y * H + b.h * H + STUD_H / 2 - GAP / 2, cz + 0.5 - center.z);
+          appendGeo(studAcc.get(ck), studLite, _m4.makeTranslation(_v.x, _v.y, _v.z), _col);
+        }
+        box.expandByPoint(_v.set(b.x - center.x, b.y * H, b.z - center.z));
+        box.expandByPoint(_v.set(b.x + b.sx - center.x, (b.y + b.h) * H + STUD_H, b.z + b.sz - center.z));
+      }
+      const lg = new THREE.BufferGeometry();
+      lg.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+      const line = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
+      line.raycast = () => {};
+      const cg = new THREE.Group();
+      cg.add(mesh, line);
+      const studs = [];
+      for (const [ck, acc] of studAcc) {
+        const sm = new THREE.Mesh(accGeo(acc), mat);
+        sm.castShadow = shadows;
+        sm.raycast = () => {};
+        cg.add(sm);
+        studs.push({ mesh: sm, coverKey: ck });
+      }
+      group.add(cg);
+      Object.assign(ch, { group: cg, mesh, line, studs, mat, mats: [mat], tri, box, baseY: 0, baseOpacity: c.opacity, st: {}, dropStart: null });
+      recs.push(ch);
+    }
+    for (const ch of recs) for (const s of ch.studs) s.cover = s.coverKey ? chunks.get(s.coverKey) : null;
+    return { group, recs, center, batched: true };
+  }
+  function makeModelGroup(m, opts = {}) {
+    return m.blocks.length >= BATCH_MIN ? makeBatchedGroup(m, opts) : makeBlockGroup(m, opts);
+  }
+
+  /** Build a Three.js group of one object per block (used for normal-size models). */
+  function makeBlockGroup(m, { shadows = true, live = true } = {}) {
     const group = new THREE.Group(), recs = [];
     const center = { x: Math.round((m.bounds.minX + m.bounds.maxX) / 2), z: Math.round((m.bounds.minZ + m.bounds.maxZ) / 2) };
     for (const b of m.blocks) {
@@ -688,8 +818,9 @@ const Scene = (() => {
     }
     return { group, recs, center };
   }
-  function disposeGroup(recs) {
+  function disposeGroup(recs, batchedGroup) {
     for (const r of recs) { r.mats.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); r.line.material.dispose(); }
+    if (batchedGroup) for (const r of recs) { r.mesh.geometry.dispose(); r.line.geometry.dispose(); r.studs.forEach(s => s.mesh.geometry.dispose()); }
   }
 
   let recs = [], recById = new Map(), pickables = [];
@@ -697,22 +828,108 @@ const Scene = (() => {
   const cageMat = new THREE.LineBasicMaterial({ color: SELECT, depthTest: false, transparent: true, opacity: 0.95 });
   let cage = null;
 
+  let isBatched = false, center = { x: 0, z: 0 }, overlays = [], hoverOverlay = null, hoverShown = null;
+  const chunkOf = new Map();
+  const ovMat = color => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+  const OV = { sel: ovMat(SELECT), part: ovMat(SELECT), hover: ovMat(WHITE) };
+  OV.hover.opacity = 0.22;
+  function dropOverlay(o) { if (o) { o.parent && o.parent.remove(o); o.geometry.dispose(); } }
+  function clearOverlays() { overlays.forEach(dropOverlay); overlays = []; dropOverlay(hoverOverlay); hoverOverlay = null; hoverShown = null; }
+  /** Tint a set of blocks in batched mode: merged copies drawn over their chunks. */
+  function addOverlay(blocks, kind) {
+    const byChunk = new Map(), out = [];
+    for (const b of blocks) { const r = chunkOf.get(b.id); if (!r || !r.st.vis || r.st.ghost) continue; if (!byChunk.has(r)) byChunk.set(r, []); byChunk.get(r).push(b); }
+    for (const [r, bl] of byChunk) {
+      const { geo } = mergedBodies(bl, center, state.model);
+      const o = new THREE.Mesh(geo, OV[kind]);
+      o.raycast = () => {};
+      o.renderOrder = 2;
+      r.group.add(o);
+      out.push(o);
+    }
+    return out;
+  }
+
   function build(m) {
-    disposeGroup(recs);
-    root.clear(); recById.clear(); pickables = []; liveClocks.length = 0;
+    disposeGroup(recs, isBatched);
+    clearOverlays();
+    root.clear(); recById.clear(); chunkOf.clear(); pickables = []; liveClocks.length = 0;
     if (cage) { cage.geometry.dispose(); cage = null; }
+    fitScene(m);
     const made = makeModelGroup(m, { shadows: true, live: true });
     recs = made.recs;
+    isBatched = !!made.batched;
+    center = made.center;
     root.add(made.group);
-    for (const r of recs) recById.set(r.b.id, r);
+    if (isBatched) { for (const r of recs) for (const b of r.blocks) chunkOf.set(b.id, r); }
+    else for (const r of recs) recById.set(r.b.id, r);
     frontMark.position.set(0, 0.004, (m.bounds.maxZ - made.center.z) + 1.6);
     explodeT = state.exploded ? 1 : 0;
   }
 
+  function visOf(stepN, y, h) {
+    let vis = state.mode === 'complete' || stepN <= curStep().step, ghost = false;
+    if (state.layer > 0) {
+      const ly = state.model.levels[state.layer - 1];
+      if (y > ly) vis = false;
+      else if (y + h <= ly) { if (state.layerOnly) vis = false; else ghost = true; }
+    }
+    return { vis, ghost };
+  }
+  function setOpacity(r, ghost) {
+    const op = ghost ? 0.13 : r.baseOpacity;
+    for (const mt of r.mats) {
+      const tr = op < 1;
+      if (mt.transparent !== tr) { mt.transparent = tr; mt.needsUpdate = true; }
+      mt.opacity = op;
+      mt.depthWrite = !tr;
+    }
+  }
+  function applyBatched(opts) {
+    const step = curStep().step, now = performance.now();
+    pickables = [];
+    const newCount = state.mode === 'build' ? recs.filter(r => r.step === step).length : 0;
+    const stagger = Math.min(70, 1400 / Math.max(1, newCount));
+    let k = 0;
+    for (const r of recs) {
+      const { vis, ghost } = visOf(r.step, r.y, r.h);
+      const isNew = vis && !ghost && state.mode === 'build' && r.step === step;
+      const wasVisible = r.group.visible && r.st.vis;
+      if (isNew && opts.animateNew && !wasVisible && !reduced) r.dropStart = now + (k++) * stagger;
+      if (!isNew) r.dropStart = null;
+      r.st = { vis, ghost, isNew };
+      r.group.visible = vis;
+      setOpacity(r, ghost);
+      r.mesh.castShadow = !ghost;
+      const lm = r.line.material;
+      if (isNew) { lm.color.copy(ACCENT); lm.opacity = 0.95; }
+      else if (ghost) { lm.color.set(0x9aa6b5); lm.opacity = 0.22; }
+      else { lm.color.copy(BLACK); lm.opacity = r.baseOpacity < 1 ? 0.18 : 0.3; }
+      if (vis && !ghost) pickables.push(r.mesh);
+    }
+    for (const r of recs) for (const s of r.studs) { s.mesh.visible = !(s.cover && s.cover.st.vis); s.mesh.castShadow = !r.st.ghost; }
+    clearOverlays();
+    const m = state.model;
+    if (state.partsKey) overlays.push(...addOverlay(m.blocks.filter(b => partKeyOf(b, state.partsView) === state.partsKey), 'part'));
+    if (cage) { cage.parent && cage.parent.remove(cage); cage.geometry.dispose(); cage = null; }
+    const sb = state.selectedId && m.byId.get(state.selectedId), sr = sb && chunkOf.get(sb.id);
+    if (sr && sr.st.vis) {
+      overlays.push(...addOverlay([sb], 'sel'));
+      cage = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sb.sx + 0.1, sb.h * H + 0.1, sb.sz + 0.1)), cageMat);
+      cage.renderOrder = 999;
+      cage.raycast = () => {};
+      cage.position.set(sb.x + sb.sx / 2 - center.x, sb.y * H + sb.h * H / 2, sb.z + sb.sz / 2 - center.z);
+      sr.group.add(cage);
+    }
+  }
+
   function apply(opts = {}) {
+    if (isBatched) return applyBatched(opts);
     const step = curStep().step, L = state.layer;
     pickables = [];
     const now = performance.now();
+    const newCount = state.mode === 'build' ? recs.filter(r => r.b.step === step).length : 0;
+    const stagger = Math.min(70, 1400 / Math.max(1, newCount));
     let k = 0;
     for (const r of recs) {
       const b = r.b;
@@ -726,7 +943,7 @@ const Scene = (() => {
       const sel = b.id === state.selectedId;
       const part = !!state.partsKey && partKeyOf(b, state.partsView) === state.partsKey;
       const wasVisible = r.group.visible && r.st.vis;
-      if (isNew && opts.animateNew && !wasVisible && !reduced) r.dropStart = now + (k++) * 70;
+      if (isNew && opts.animateNew && !wasVisible && !reduced) r.dropStart = now + (k++) * stagger;
       if (!isNew) r.dropStart = null;
       r.st = { vis, ghost, isNew, sel, part };
       r.group.visible = vis;
@@ -769,6 +986,13 @@ const Scene = (() => {
     let any = false;
     for (const r of list) {
       if (r.st && r.st.vis === false) continue;
+      if (r.box) {                       // batched chunk
+        const dy = expl * r.level * EXPLODE;
+        box.expandByPoint(new THREE.Vector3(r.box.min.x, r.box.min.y + dy, r.box.min.z));
+        box.expandByPoint(new THREE.Vector3(r.box.max.x, r.box.max.y + dy, r.box.max.z));
+        any = true;
+        continue;
+      }
       const b = r.b;
       const y = r.baseY + expl * b.level * EXPLODE;
       const hx = b.sx / 2, hz = b.sz / 2, hy = b.h * H / 2;
@@ -795,6 +1019,14 @@ const Scene = (() => {
     tween = { fp: camera.position.clone(), tp: pos, ft: controls.target.clone(), tt: target, t0: performance.now(), dur: 650 };
   }
   function focusBlock(id) {
+    if (isBatched) {
+      const b = state.model.byId.get(id), r = chunkOf.get(id); if (!b || !r) return;
+      const dy = r.group.position.y;
+      const box = new THREE.Box3(new THREE.Vector3(b.x - center.x, b.y * H + dy, b.z - center.z), new THREE.Vector3(b.x + b.sx - center.x, (b.y + b.h) * H + dy, b.z + b.sz - center.z));
+      box.expandByScalar(2.2);
+      flyTo(null, { box, pad: 1.1 });
+      return;
+    }
     const r = recById.get(id); if (!r) return;
     const box = new THREE.Box3().setFromObject(r.mesh);
     box.expandByScalar(2.2);
@@ -816,10 +1048,11 @@ const Scene = (() => {
     thumbScene.add(made.group);
     const { pos, target } = fitPose(thumbCam, boundsOf(made.recs, 0), new THREE.Vector3(...VIEWS.iso), 1.02);
     thumbCam.position.copy(pos); thumbCam.lookAt(target);
+    thumbCam.far = Math.max(600, pos.distanceTo(target) * 3); thumbCam.updateProjectionMatrix();
     thumbR.render(thumbScene, thumbCam);
     const url = thumbR.domElement.toDataURL('image/png');
     thumbScene.remove(made.group);
-    disposeGroup(made.recs);
+    disposeGroup(made.recs, made.batched);
     return url;
   }
 
@@ -830,7 +1063,12 @@ const Scene = (() => {
     ndc.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
     const hit = ray.intersectObjects(pickables, false)[0];
-    return hit ? hit.object.userData.blockId : null;
+    if (!hit) return null;
+    const ch = hit.object.userData.chunk;
+    if (!ch) return hit.object.userData.blockId;
+    let lo = 0, hi = ch.tri.length - 1;              // last block whose first triangle <= faceIndex
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ch.tri[mid] <= hit.faceIndex) lo = mid; else hi = mid - 1; }
+    return ch.blocks[lo].id;
   }
 
   function resize() {
@@ -857,6 +1095,28 @@ const Scene = (() => {
       if (t >= 1) tween = null;
     }
     const pulse = 0.5 + 0.5 * Math.sin(now / 240);
+    if (isBatched) {
+      for (const r of recs) {
+        if (!r.group.visible) continue;
+        let drop = 0;
+        if (r.dropStart !== null) {
+          const t = (now - r.dropStart) / 480;
+          if (t >= 1) r.dropStart = null; else drop = t < 0 ? DROP : (1 - easeOutBack(t)) * DROP;
+        }
+        r.group.position.y = explodeT * r.level * EXPLODE + drop;
+        const inten = r.st.isNew ? 0.16 + 0.2 * pulse : 0;
+        r.mat.emissive.copy(r.st.isNew ? ACCENT : BLACK); r.mat.emissiveIntensity = inten;
+      }
+      OV.part.opacity = 0.18 + 0.3 * pulse;
+      if (state.hoverId !== hoverShown) {
+        dropOverlay(hoverOverlay); hoverOverlay = null; hoverShown = state.hoverId;
+        const hb = state.hoverId && state.model.byId.get(state.hoverId);
+        if (hb && state.hoverId !== state.selectedId) hoverOverlay = addOverlay([hb], 'hover')[0] || null;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+      return;
+    }
     for (const r of recs) {
       if (!r.group.visible) continue;
       let drop = 0;
@@ -946,7 +1206,7 @@ const Scene = (() => {
     tween = { fp: camera.position.clone(), tp: camera.position.clone().add(point.clone().sub(controls.target)), ft: controls.target.clone(), tt: point.clone(), t0: performance.now(), dur: reduced ? 0 : 400 };
   });
 
-  return { build, apply, flyTo, focusBlock, pick, thumbnail, VIEWS, canvas, zoomAt };
+  return { build, apply, flyTo, focusBlock, pick, thumbnail, VIEWS, canvas, zoomAt, stats: () => ({ ...renderer.info.render, batched: isBatched, objects: recs.length }) };
 })();
 
 /* ======================================================================
@@ -1901,6 +2161,6 @@ function showViewportMessage(html) { $('#vp-msg-text').innerHTML = html; $('#vp-
   $('#model-name').textContent = '作品なし';
 })();
 
-window.BlockMade = { state, library, showModel, openWork, startPlay, buildPlanPrompt, parsePlan };
+window.BlockMade = { state, library, showModel, openWork, startPlay, buildPlanPrompt, parsePlan, Scene, goStep, setLayer, select };
 }
 </script>
