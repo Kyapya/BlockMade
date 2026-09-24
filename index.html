@@ -299,7 +299,7 @@ button{cursor:pointer}
           <span class="val" id="layer-val">全レイヤー</span>
           <label class="toggle"><input type="checkbox" id="layer-only"> このレイヤーのみ</label>
         </div>
-        <div class="hint" id="hint">ドラッグ: 回転 · 右ドラッグ / Shift+ドラッグ: パン · ホイール: ズーム · クリック: 選択</div>
+        <div class="hint" id="hint">ドラッグ: 回転 · 右ドラッグ / Shift+ドラッグ: パン · ホイール: カーソル位置へズーム（Shiftで速く） · ダブルクリック: 回転の中心 · クリック: 選択</div>
       </div>
       <div id="tip" hidden></div>
       <div class="vp-msg" id="vp-msg" hidden><div id="vp-msg-text"></div></div>
@@ -2007,8 +2007,9 @@ const Scene = (() => {
   controls.enableDamping = true;
   controls.dampingFactor = 0.1;
   controls.screenSpacePanning = true;
-  controls.minDistance = 3;
-  controls.maxDistance = 240;
+  controls.minDistance = 0.5;
+  controls.maxDistance = 3000;
+  controls.enableZoom = false;          // wheel zoom is handled below (fixed step in studs, toward the cursor)
   controls.maxPolarAngle = Math.PI / 2 + 0.12;
   addLights(scene, true);
 
@@ -2372,7 +2373,75 @@ const Scene = (() => {
   }
   requestAnimationFrame(tick);
 
-  return { build, apply, flyTo, focusBlock, pick, thumbnail, VIEWS, canvas };
+  // --- zoom: a fixed distance in studs per wheel notch, toward the point under the cursor ---
+  // Scaling camera and orbit target about that point keeps it fixed on screen, so the
+  // top or the base of a tall model can be approached directly.
+  const ZOOM_STEP = 2;          // studs per wheel notch (Shift: x4)
+  const ZOOM_MIN = 1.2;         // closest approach to the point under the cursor, in studs
+  function pointUnder(ev) {
+    const rect = canvas.getBoundingClientRect();
+    ndc.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) return { point: hit.point, hit: true };
+    // nothing under the cursor: use the plane through the orbit target facing the camera
+    const n = camera.getWorldDirection(new THREE.Vector3());
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, controls.target);
+    const p = ray.ray.intersectPlane(plane, new THREE.Vector3());
+    return { point: p || controls.target.clone(), hit: false };
+  }
+  function zoomAt(ev, studs) {
+    tween = null;
+    const { point } = pointUnder(ev);
+    const d = camera.position.distanceTo(point);
+    if (d < 1e-6) return;
+    const nd = Math.min(3000, Math.max(ZOOM_MIN, d - studs));
+    if (studs > 0 && d <= ZOOM_MIN) return;
+    const k = nd / d;
+    camera.position.sub(point).multiplyScalar(k).add(point);
+    controls.target.sub(point).multiplyScalar(k).add(point);
+    controls.update();
+  }
+  canvas.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    const unit = ev.deltaMode === 1 ? 33 : ev.deltaMode === 2 ? 400 : 1;   // lines / pages -> pixels
+    const notches = -(ev.deltaY * unit) / 100;                               // ~1 per mouse-wheel click
+    const fast = ev.shiftKey ? 4 : 1;
+    const pinch = ev.ctrlKey ? 3 : 1;                                        // trackpad pinch sends small deltas with ctrlKey
+    zoomAt(ev, notches * ZOOM_STEP * fast * pinch);
+  }, { passive: false });
+  // two-finger pinch on touch screens: same fixed-step zoom, toward the midpoint of the fingers
+  const touches = new Map();
+  let pinchDist = 0;
+  const midAndDist = () => {
+    const [a, b] = [...touches.values()];
+    return { ev: { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }, dist: Math.hypot(a.x - b.x, a.y - b.y) };
+  };
+  canvas.addEventListener('pointerdown', ev => {
+    if (ev.pointerType !== 'touch') return;
+    touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (touches.size === 2) pinchDist = midAndDist().dist;
+  });
+  canvas.addEventListener('pointermove', ev => {
+    if (ev.pointerType !== 'touch' || !touches.has(ev.pointerId)) return;
+    touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+    if (touches.size !== 2) return;
+    const { ev: mid, dist } = midAndDist();
+    zoomAt(mid, (dist - pinchDist) * 0.06);   // ~6 studs per 100 px of pinch
+    pinchDist = dist;
+  });
+  const lift = ev => { touches.delete(ev.pointerId); if (touches.size === 2) pinchDist = midAndDist().dist; };
+  canvas.addEventListener('pointerup', lift);
+  canvas.addEventListener('pointercancel', lift);
+
+  // double-click: orbit around the clicked point from now on
+  canvas.addEventListener('dblclick', ev => {
+    const { point, hit } = pointUnder(ev);
+    if (!hit) return;
+    tween = { fp: camera.position.clone(), tp: camera.position.clone().add(point.clone().sub(controls.target)), ft: controls.target.clone(), tt: point.clone(), t0: performance.now(), dur: reduced ? 0 : 400 };
+  });
+
+  return { build, apply, flyTo, focusBlock, pick, thumbnail, VIEWS, canvas, zoomAt };
 })();
 
 /* ======================================================================
@@ -3190,6 +3259,7 @@ let down = null, hoverRaf = 0;
 canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now(), btn: e.button }; });
 canvas.addEventListener('pointerup', e => {
   if (!down) return;
+  if (e.detail > 1) { down = null; return; }   // second click of a double-click sets the pivot instead
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   if (down.btn === 0 && moved < 6 && performance.now() - down.t < 700) {
     const id = Scene.pick(e);
