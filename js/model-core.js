@@ -202,10 +202,29 @@ function validateModel(m) {
   const B = m.blocks, n = B.length;
   const above = new Map(B.map(b => [b.id, []])), below = new Map(B.map(b => [b.id, []]));
   const collisions = [];
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-    const a = B[i], b = B[j];
-    if (!overlapXZ(a, b)) continue;
-    if (overlapY(a, b)) { collisions.push([a.id, b.id]); continue; }
+  // only parts that share a stud column can touch: index them by column (same pair order as i < j)
+  const colKey = (x, z) => (x + 32768) * 65536 + (z + 32768);
+  const cols = new Map();
+  for (let i = 0; i < n; i++) {
+    const b = B[i];
+    for (let x = b.x; x < b.x + b.sx; x++) for (let z = b.z; z < b.z + b.sz; z++) {
+      const k = colKey(x, z);
+      const l = cols.get(k);
+      if (l) l.push(i); else cols.set(k, [i]);
+    }
+  }
+  const seenBy = new Int32Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    const a = B[i], cand = [];
+    for (let x = a.x; x < a.x + a.sx; x++) for (let z = a.z; z < a.z + a.sz; z++) {
+      for (const j of cols.get(colKey(x, z))) if (j > i && seenBy[j] !== i) { seenBy[j] = i; cand.push(j); }
+    }
+    cand.sort((p, q) => p - q);
+    for (const j of cand) pairCheck(a, B[j]);
+  }
+  function pairCheck(a, b) {
+    if (!overlapXZ(a, b)) return;
+    if (overlapY(a, b)) { collisions.push([a.id, b.id]); return; }
     if (studsMeet(a, b)) { below.get(a.id).push(b.id); above.get(b.id).push(a.id); }
     else if (studsMeet(b, a)) { below.get(b.id).push(a.id); above.get(a.id).push(b.id); }
   }
