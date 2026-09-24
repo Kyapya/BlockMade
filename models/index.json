@@ -66,6 +66,32 @@
       "steps": 23,
       "layers": 25,
       "size": "16×16×21.7"
+    },
+    {
+      "id": "tokyo-skytree",
+      "file": "models/tokyo-skytree.json",
+      "name": "東京スカイツリー",
+      "nameEn": "Tokyo Skytree",
+      "description": "高さ634mの自立式電波塔を1スタッド＝2mで再現。足もとの一辺68mの正三角形が高さ320mで円に変わる断面、X形トラスと水平リングの外殻、すき間から見える心柱とエレベーターシャフト、350mの天望デッキ、らせん状のガラス回廊をもつ450mの天望回廊、頂部のゲイン塔まで。足もとにはタワーヤードと北十間川。",
+      "author": "Claude",
+      "createdAt": "2026-09-24",
+      "blocks": 11010,
+      "steps": 29,
+      "layers": 299,
+      "size": "64×72×265.3"
+    },
+    {
+      "id": "mont-saint-michel",
+      "file": "models/mont-saint-michel.json",
+      "name": "モン・サン＝ミシェル",
+      "nameEn": "Mont-Saint-Michel",
+      "description": "干潟に浮かぶ花崗岩の岩山に、城壁と村、ラ・メルヴェイユ、修道院付属教会と尖塔の大天使像までを1スタッド約3.5mで再現。スロープの屋根と岩肌、タイル張りの干潟、アーチの門と回廊、丸ブロックとコーンの尖塔で仕上げています。100×90スタッド・高さ119プレート・11591パーツ。",
+      "author": "Claude",
+      "createdAt": "2026-09-24",
+      "blocks": 11591,
+      "steps": 209,
+      "layers": 42,
+      "size": "100×90×39.7"
     }
   ]
 }
